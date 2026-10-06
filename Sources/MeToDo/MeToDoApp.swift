@@ -19,6 +19,7 @@ struct MeToDoApp: App {
             PopoverView()
                 .environment(appDelegate.store)
                 .environment(appDelegate.ui)
+                .environment(appDelegate.reminders)
         } label: {
             MenuBarLabel()
                 .environment(appDelegate.store)

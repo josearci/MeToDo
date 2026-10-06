@@ -6,6 +6,7 @@ struct PopoverView: View {
     @Environment(Store.self) private var store
     @Environment(UIState.self) private var ui
     @Environment(\.openWindow) private var openWindow
+    @Environment(ReminderScheduler.self) private var reminders
 
     var body: some View {
         @Bindable var ui = ui
@@ -34,11 +35,23 @@ struct PopoverView: View {
                     .padding(.vertical, 6)
             }
 
+            if reminders.remindersOff {
+                Button {
+                    NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension")!)
+                } label: {
+                    Label("Reminders are off · Fix…", systemImage: "bell.slash")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(.orange)
+                .padding(.horizontal, 12).padding(.vertical, 6)
+            }
             if let error = store.saveError { WarningBanner(text: error) }
             Divider()
             footer
         }
         .frame(width: 340, height: 440)
+        .task { await reminders.refreshAuthorization() }
         .background {
             // ⌘1 / ⌘2 switch tabs (spec §5).
             Group {

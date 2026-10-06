@@ -5,6 +5,7 @@ import MeToDoCore
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let store: Store
     let ui: UIState
+    let reminders: ReminderScheduler
     /// One app-wide undo stack so ⌘Z works the same from the window and the popover.
     let undoManager = UndoManager()
     private var timer: Timer?
@@ -12,8 +13,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     override init() {
         store = Store(persistence: Persistence(url: Persistence.defaultURL))
         ui = UIState()
+        reminders = ReminderScheduler(store: store, ui: ui)
         super.init()
         store.undoManager = undoManager
+    }
+
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        reminders.install()
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -29,6 +35,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             alert.informativeText = issue
             alert.runModal()
         }
+        store.onChange = { [weak self] in self?.reminders.resync() }
+        Task { await reminders.start() }
         timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }
         }
@@ -38,7 +46,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         store.saveNow()
     }
 
+    /// Rolls Today/overdue forward and schedules reminders that were beyond the 64 cap.
     private func tick() {
         ui.now = Date()
+        reminders.resync()
     }
 }
