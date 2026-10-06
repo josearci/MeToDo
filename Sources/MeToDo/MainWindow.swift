@@ -1,25 +1,20 @@
 import SwiftUI
 import MeToDoCore
 
-/// Interim: grouped All list + Add field, so Task 7's components can be checked. Replaced in Task 8.
 struct MainWindow: View {
     @Environment(Store.self) private var store
 
     var body: some View {
-        VStack(spacing: 0) {
-            List {
-                ForEach(Queries.grouped(Queries.open(store.data), projects: store.data.projects)) { g in
-                    Section {
-                        ForEach(g.tasks) { TaskRow(task: $0).rail(g.project.color) }
-                    } header: {
-                        GroupHeader(project: g.project).rail(g.project.color)
-                    }
-                }
-            }
-            .listStyle(.plain)
-            AddField(defaultProjectID: nil, inToday: false).padding(16)
+        NavigationSplitView {
+            Sidebar().navigationSplitViewColumnWidth(min: 180, ideal: 200, max: 280)
+        } detail: {
+            TaskListView()
         }
         .frame(minWidth: 640, minHeight: 420)
+        .overlay(alignment: .bottom) {
+            if let error = store.saveError { WarningBanner(text: error).padding(.bottom, 60) }
+        }
+        // Dock icon only while the window is open (spec §9).
         .onAppear { NSApp.setActivationPolicy(.regular); NSApp.activate() }
         .onDisappear { NSApp.setActivationPolicy(.accessory) }
     }

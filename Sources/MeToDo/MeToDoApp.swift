@@ -13,6 +13,7 @@ struct MeToDoApp: App {
         }
         .defaultSize(width: 880, height: 600)
         .defaultLaunchBehavior(.suppressed)
+        .commands { AppCommands(store: appDelegate.store, ui: appDelegate.ui, undoManager: appDelegate.undoManager) }
 
         MenuBarExtra {
             PopoverView()
