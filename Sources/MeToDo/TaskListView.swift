@@ -50,8 +50,8 @@ struct TaskListView: View {
     @ViewBuilder private func groups(_ tasks: [TaskItem], movable: Bool, alwaysShowSun: Bool = false) -> some View {
         ForEach(Queries.grouped(tasks, projects: store.data.projects)) { g in
             Section {
-                // The header is a row (not a Section header) so its rail lines up with the tasks'.
-                GroupHeader(project: g.project).rail(g.project.color).selectionDisabled()
+                // The header is a row (not a Section header) so it lines up with the tasks; the bar is on tasks only..
+                GroupHeader(project: g.project).rail(g.project.color, bar: false).selectionDisabled()
                 ForEach(g.tasks) { t in
                     TaskRow(task: t, alwaysShowSun: alwaysShowSun)
                         .rail(g.project.color)

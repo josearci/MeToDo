@@ -91,9 +91,10 @@ struct WarningBanner: View {
 
 extension View {
     /// The project's 2pt color rail on the leading edge, continuous across rows.
-    func rail(_ color: ProjectColor) -> some View {
+    /// `bar: false` keeps the same indent without the bar (group headers).
+    func rail(_ color: ProjectColor, bar: Bool = true) -> some View {
         padding(.leading, 10)
-            .overlay(alignment: .leading) { Rectangle().fill(color.color).frame(width: 2) }
+            .overlay(alignment: .leading) { if bar { Rectangle().fill(color.color).frame(width: 2) } }
             .listRowInsets(EdgeInsets(top: 0, leading: 12, bottom: 0, trailing: 12))
             .listRowSeparator(.hidden)
     }
