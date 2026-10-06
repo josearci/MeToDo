@@ -225,7 +225,8 @@ enum DebugProbe {
             "windows": windows,
             "projects": store.data.projects.map(\.displayName),
             "tasks": store.data.tasks.map { ["title": $0.title, "project": store.project($0.projectID)?.name ?? "?",
-                                             "done": $0.isDone, "inToday": $0.inToday] },
+                                             "done": $0.isDone, "inToday": $0.inToday,
+                                             "remindAt": $0.remindAt.map { Queries.reminderLabel($0, now: Date(), locale: Locale(identifier: "en_US")) } ?? ""] },
         ]
         if let json = try? JSONSerialization.data(withJSONObject: state, options: [.prettyPrinted, .sortedKeys]) {
             try? json.write(to: dir.appendingPathComponent("state.json"))
