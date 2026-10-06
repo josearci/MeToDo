@@ -1,0 +1,111 @@
+<style>
+  .stage{display:flex;gap:28px;flex-wrap:wrap;justify-content:center;margin:10px 0 24px}
+  .col{display:flex;flex-direction:column;align-items:center;gap:10px}
+  .cap{font-size:13px;font-weight:600;color:#555}
+  .mbar{width:360px;height:24px;background:#2b2b2e;border-radius:6px 6px 0 0;display:flex;justify-content:flex-end;align-items:center;gap:14px;padding:0 10px;box-sizing:border-box;font:12px -apple-system,system-ui;color:#ddd}
+  .mbar .me{position:relative;background:rgba(255,255,255,.18);border-radius:4px;padding:1px 5px}
+  .mbar .me b{position:absolute;top:1px;right:1px;width:6px;height:6px;border-radius:50%;background:#ff5f57}
+  .pop{--bg:#1e1e20;--line:#38383b;--txt:#e5e5e7;--dim:#8e8e93;--faint:#5a5a5f;--tintTo:#f2f2f4;--tintPct:58%;
+    width:340px;height:440px;margin-top:-4px;background:var(--bg);border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 50px rgba(0,0,0,.4);font:13px/1.35 -apple-system,"SF Pro Text",system-ui,sans-serif;color:var(--txt);display:flex;flex-direction:column;overflow:hidden;text-align:left}
+  .green{--c:#4cc38a}.yellow{--c:#f5c451}.purple{--c:#a78bfa}.gray{--c:#9a9aa0}
+  .head{display:flex;align-items:center;gap:8px;padding:12px 12px 8px}
+  .seg{display:flex;background:#2c2c2f;border-radius:7px;padding:2px;flex:1}
+  .seg span{flex:1;text-align:center;padding:3px 0;border-radius:5px;font-size:12px;color:var(--dim)}
+  .seg span.on{background:#48484c;color:#fff}
+  .icon{color:var(--dim);font-size:13px;padding:0 4px}
+  .add{margin:0 12px 6px;border:1px solid var(--line);border-radius:7px;padding:7px 10px;color:var(--dim);font-size:12.5px;display:flex;background:#252527}
+  .add .hint{margin-left:auto;font-size:10.5px;color:var(--faint)}
+  .list{flex:1;overflow:hidden;padding:2px 8px}
+  .task{display:flex;gap:9px;padding:6px;border-radius:6px;align-items:flex-start}
+  .cb{width:13px;height:13px;border:1.5px solid var(--c);border-radius:4px;flex:none;margin-top:1px;box-sizing:border-box}
+  .title{color:color-mix(in srgb,var(--c) var(--tintPct),var(--tintTo))}
+  .meta{font-size:10.5px;color:var(--dim);margin-top:2px;display:flex;gap:8px}
+  .meta .over{color:#ff5f57}
+  .meta .ring{color:var(--c)}
+  .meta .proj{color:var(--c)}
+  .subs{margin:0 0 4px 28px}
+  .sub{display:flex;gap:7px;padding:2px 0;font-size:12px;align-items:center}
+  .sub .cb{width:11px;height:11px;border-radius:3px;margin:0;font-size:8px;display:flex;align-items:center;justify-content:center;color:var(--bg)}
+  .sub.done{color:var(--dim);text-decoration:line-through}.sub.done .cb{background:var(--c)}
+  .clear{text-align:center;padding:18px 0 10px;color:var(--dim)}
+  .clear div{font-size:22px}
+  .lbl{font-size:10.5px;color:var(--dim);font-weight:600;padding:8px 6px 2px;text-transform:uppercase;letter-spacing:.4px}
+  .sun{margin-left:auto;font-size:11px;opacity:.9}
+  .ghead{font-size:11px;font-weight:650;color:var(--c);padding:8px 6px 0}
+  .foot{border-top:1px solid var(--line);padding:8px 12px;display:flex;font-size:12px;color:var(--dim)}
+  .foot span:last-child{margin-left:auto}
+</style>
+
+<h2>Menu bar popover</h2>
+<p class="subtitle">Click the ✓ icon in the menu bar and this drops down. The red dot on the icon means something is overdue. Three states shown.</p>
+
+<div class="stage">
+  <div class="col">
+    <div class="cap">1 · Today (normal day)</div>
+    <div class="mbar"><span>🔋</span><span>Wi-Fi</span><span class="me">✓<b></b></span><span>Mon 9:41</span></div>
+    <div class="pop">
+      <div class="head"><div class="seg"><span class="on">Today · 3</span><span>All · 12</span></div><span class="icon" title="Open full app">⤢</span></div>
+      <div class="add">＋ Add task<span class="hint">#project · 3pm</span></div>
+      <div class="list">
+        <div class="task purple"><span class="cb"></span><div><div class="title">Cambiar REDIS para botscore</div><div class="meta"><span class="over">🔔 Yesterday 5:00 PM</span><span class="proj">📊 Lemdy</span></div></div></div>
+        <div class="task yellow"><span class="cb"></span><div><div class="title">Hacer la entrega del documento del proyecto 1</div><div class="meta"><span>🔔 3:00 PM</span><span class="proj">🚀 Sprint</span></div></div></div>
+        <div class="task green"><span class="cb"></span><div><div class="title">Poner a funcionar AWS</div><div class="meta"><span class="proj">💼 Work</span></div></div></div>
+        <div class="task yellow"><span class="cb"></span><div><div class="title">Crear las tareas para el sprint</div><div class="meta"><span class="ring">◔ 1/4 ▾</span><span class="proj">🚀 Sprint</span></div></div></div>
+        <div class="subs yellow">
+          <div class="sub done"><span class="cb">✓</span>Revisar backlog</div>
+          <div class="sub"><span class="cb"></span>Estimar historias</div>
+          <div class="sub"><span class="cb"></span>Asignar responsables</div>
+          <div class="sub"><span class="cb"></span>Crear tablero</div>
+        </div>
+      </div>
+      <div class="foot"><span>Open MeToDo ⌘O</span><span>⚙︎</span></div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="cap">2 · Today done → pick what's next</div>
+    <div class="mbar"><span>🔋</span><span>Wi-Fi</span><span class="me">✓</span><span>Mon 4:12</span></div>
+    <div class="pop">
+      <div class="head"><div class="seg"><span class="on">Today · 0</span><span>All · 9</span></div><span class="icon">⤢</span></div>
+      <div class="add">＋ Add task<span class="hint">#project · 3pm</span></div>
+      <div class="list">
+        <div class="clear"><div>✓</div>All clear for today</div>
+        <div class="lbl">Up next · click ☀️ to pull into Today</div>
+        <div class="ghead green">💼 Work</div>
+        <div class="task green"><span class="cb"></span><div><div class="title">Subir la solución del RAG…</div></div><span class="sun">☀️</span></div>
+        <div class="ghead yellow">🚀 Sprint</div>
+        <div class="task yellow"><span class="cb"></span><div><div class="title">Crear presentación para clase de inglés</div></div><span class="sun">☀️</span></div>
+        <div class="ghead purple">📊 Lemdy</div>
+        <div class="task purple"><span class="cb"></span><div><div class="title">Poner el reporte de los carry overs…</div></div><span class="sun">☀️</span></div>
+      </div>
+      <div class="foot"><span>Open MeToDo ⌘O</span><span>⚙︎</span></div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="cap">3 · All tab</div>
+    <div class="mbar"><span>🔋</span><span>Wi-Fi</span><span class="me">✓<b></b></span><span>Mon 9:41</span></div>
+    <div class="pop">
+      <div class="head"><div class="seg"><span>Today · 3</span><span class="on">All · 12</span></div><span class="icon">⤢</span></div>
+      <div class="add">＋ Add task<span class="hint">#project · 3pm</span></div>
+      <div class="list">
+        <div class="ghead green">💼 Work</div>
+        <div class="task green"><span class="cb"></span><div><div class="title">Crear la presentación para entrega el 14</div><div class="meta"><span>🔔 Oct 14, 9:00 AM</span></div></div></div>
+        <div class="task green"><span class="cb"></span><div><div class="title">Poner a funcionar AWS</div><div class="meta"><span>☀️ Today</span></div></div></div>
+        <div class="ghead yellow">🚀 Sprint</div>
+        <div class="task yellow"><span class="cb"></span><div><div class="title">Crear las tareas para el sprint</div><div class="meta"><span class="ring">◔ 1/4 ▸</span></div></div></div>
+        <div class="task yellow"><span class="cb"></span><div><div class="title">Hacer la entrega del documento…</div><div class="meta"><span>🔔 Today 3:00 PM</span></div></div></div>
+        <div class="ghead purple">📊 Lemdy</div>
+        <div class="task purple"><span class="cb"></span><div><div class="title">Cambiar REDIS para botscore</div><div class="meta"><span class="over">🔔 Yesterday 5:00 PM</span></div></div></div>
+      </div>
+      <div class="foot"><span>Open MeToDo ⌘O</span><span>⚙︎</span></div>
+    </div>
+  </div>
+</div>
+
+<ul style="max-width:900px;margin:0 auto;font-size:14px">
+  <li><b>Add field at the top</b> here (not bottom like the main window): it sits right under your cursor when the popover opens, so capture is click → type → Return.</li>
+  <li><b>Today is sorted</b> overdue → timed → your ☀️ picks. No group headers (too few items); each row shows its project as a small colored tag instead.</li>
+  <li><b>Same interactions as the main window:</b> tick to complete, click a title to edit, click ◔ to expand subtasks. Anything heavier (moving between projects, editing projects) is in the full app via ⤢ / ⌘O.</li>
+  <li><b>⚙︎ menu:</b> Launch at login (on by default), Open MeToDo, Quit.</li>
+</ul>

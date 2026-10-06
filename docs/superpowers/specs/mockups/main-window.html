@@ -1,0 +1,110 @@
+<style>
+  .win{--bg:#1c1c1e;--side:#28282b;--line:#3a3a3c;--txt:#e5e5e7;--dim:#8e8e93;--faint:#5a5a5f;--hov:rgba(255,255,255,.05);--sel:rgba(255,255,255,.1);--field:#232325;--tintTo:#f2f2f4;--tintPct:58%;
+    width:100%;max-width:880px;height:600px;margin:0 auto;border-radius:12px;overflow:hidden;display:flex;background:var(--bg);border:1px solid var(--line);box-shadow:0 20px 60px rgba(0,0,0,.35);font-family:-apple-system,"SF Pro Text",system-ui,sans-serif;color:var(--txt);font-size:13px;text-align:left;line-height:1.35}
+  .win .green{--c:#4cc38a}.win .yellow{--c:#f5c451}.win .purple{--c:#a78bfa}.win .gray{--c:#9a9aa0}
+  .win.light{--bg:#ffffff;--side:#f2f2f4;--line:#e3e3e6;--txt:#1d1d1f;--dim:#7c7c80;--faint:#b0b0b5;--hov:rgba(0,0,0,.04);--sel:rgba(0,0,0,.07);--field:#f7f7f8;--tintTo:#1d1d1f;--tintPct:72%}
+  .win.light .green{--c:#1f9d63}.win.light .yellow{--c:#c08a12}.win.light .purple{--c:#7c5cd6}.win.light .gray{--c:#8a8a8f}
+  .side{width:200px;flex:none;background:var(--side);border-right:1px solid var(--line);padding:12px 8px}
+  .lights{display:flex;gap:8px;padding:2px 6px 16px}
+  .lights i{width:12px;height:12px;border-radius:50%;display:block}
+  .sitem{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px}
+  .sitem.sel{background:var(--sel)}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--c);flex:none}
+  .count{margin-left:auto;color:var(--dim);font-size:12px}
+  .slabel{font-size:11px;color:var(--dim);padding:14px 8px 4px;font-weight:600}
+  .newp{color:var(--dim);padding:10px 8px;font-size:12px}
+  .main{flex:1;display:flex;flex-direction:column;min-width:0}
+  .top{padding:18px 28px 6px;font-size:20px;font-weight:700;display:flex;align-items:baseline;gap:10px}
+  .top small{font-size:12px;color:var(--dim);font-weight:500}
+  .list{flex:1;overflow:hidden;padding:0 28px}
+  .group{border-left:2px solid var(--c);padding:2px 0 2px 8px;margin:10px 0}
+  .ghead{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:650;margin:4px 0 2px 6px;color:var(--c)}
+  .task{position:relative;display:flex;gap:10px;padding:6px;border-radius:6px;align-items:flex-start}
+  .task.hover{background:var(--hov)}
+  .title{color:color-mix(in srgb,var(--c) var(--tintPct),var(--tintTo))}
+  .cb{width:14px;height:14px;border:1.5px solid var(--c);border-radius:5px;flex:none;margin-top:1px;box-sizing:border-box}
+  .meta{font-size:11px;color:var(--dim);margin-top:2px;display:flex;gap:10px}
+  .meta .over{color:#ff5f57}
+  .meta .ring{color:var(--c)}
+  .btns{margin-left:auto;display:flex;gap:10px;font-size:12px}
+  .grip{position:absolute;left:-22px;top:7px;color:var(--faint);font-size:11px;letter-spacing:-2px}
+  .subs{margin:0 0 4px 31px;padding-left:2px}
+  .sub{display:flex;gap:8px;padding:3px 0;font-size:12.5px;align-items:center}
+  .sub .cb{width:12px;height:12px;border-radius:4px;margin:0;display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--bg)}
+  .sub.done{color:var(--dim);text-decoration:line-through}
+  .sub.done .cb{background:var(--c)}
+  .sub.addsub{color:var(--faint)}
+  .doneRow{color:var(--dim);font-size:12px;margin:12px 6px}
+  .add{margin:8px 28px 18px;border:1px solid var(--line);border-radius:8px;padding:9px 12px;color:var(--dim);display:flex;background:var(--field)}
+  .add .hint{margin-left:auto;font-size:11px;color:var(--faint)}
+  .notes{max-width:880px;margin:0 auto 28px;font-size:14px}
+  .notes li{margin:4px 0}
+</style>
+
+<h2>Merged direction: dark &amp; light</h2>
+<p class="subtitle">Color identity from A, readability and native feel from B. The app follows your system appearance, so here are both.</p>
+
+<ul class="notes">
+  <li><b>From A:</b> titles keep the project color, but <i>softened</i> (blended toward white in dark mode, toward black in light mode) so long lists stay easy to read.</li>
+  <li><b>From B:</b> a thin color rail per project instead of divider lines, which groups the tasks without boxing them in.</li>
+  <li><b>Middle ground:</b> rounded-square checkboxes (between A's squares and B's circles), with the emoji + colored header on each group.</li>
+  <li><b>Light mode:</b> uses deeper versions of each color, since bright yellow on white would be unreadable.</li>
+</ul>
+
+<div class="slot"></div>
+<div style="height:28px"></div>
+<div class="slot light"></div>
+
+<template id="win">
+<div class="win">
+  <div class="side">
+    <div class="lights"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></div>
+    <div class="sitem">☀️ Today<span class="count">3</span></div>
+    <div class="sitem sel">📋 All<span class="count">12</span></div>
+    <div class="slabel">Projects</div>
+    <div class="sitem gray"><span class="dot"></span>📥 Inbox<span class="count">2</span></div>
+    <div class="sitem green"><span class="dot"></span>💼 Work<span class="count">3</span></div>
+    <div class="sitem yellow"><span class="dot"></span>🚀 Sprint<span class="count">3</span></div>
+    <div class="sitem purple"><span class="dot"></span>📊 Lemdy<span class="count">3</span></div>
+    <div class="newp">＋ New Project</div>
+  </div>
+  <div class="main">
+    <div class="top">All <small>12 open</small></div>
+    <div class="list">
+      <div class="group green">
+        <div class="ghead">💼 Work</div>
+        <div class="task"><span class="cb"></span><div><div class="title">Crear la presentación para entrega el 14</div><div class="meta"><span>🔔 Oct 14, 9:00 AM</span></div></div></div>
+        <div class="task"><span class="cb"></span><div><div class="title">Subir la solución del RAG para tener acceso desde cualquier lado</div></div></div>
+        <div class="task"><span class="cb"></span><div><div class="title">Poner a funcionar AWS</div><div class="meta"><span>☀️ Today</span></div></div></div>
+      </div>
+      <div class="group yellow">
+        <div class="ghead">🚀 Sprint</div>
+        <div class="task"><span class="cb"></span><div><div class="title">Crear las tareas para el sprint</div><div class="meta"><span class="ring">◔ 1/4 ▾</span></div></div></div>
+        <div class="subs">
+          <div class="sub done"><span class="cb">✓</span>Revisar backlog</div>
+          <div class="sub"><span class="cb"></span>Estimar historias</div>
+          <div class="sub"><span class="cb"></span>Asignar responsables</div>
+          <div class="sub"><span class="cb"></span>Crear tablero</div>
+          <div class="sub addsub">＋ Add subtask</div>
+        </div>
+        <div class="task"><span class="cb"></span><div><div class="title">Hacer la entrega del documento del proyecto 1</div><div class="meta"><span>🔔 Today 3:00 PM</span><span>☀️</span></div></div></div>
+        <div class="task hover"><span class="grip">⋮⋮</span><span class="cb"></span><div><div class="title">Crear presentación para clase de inglés (octubre 14)</div></div><div class="btns"><span>☀️</span><span>🔔</span></div></div>
+      </div>
+      <div class="group purple">
+        <div class="ghead">📊 Lemdy</div>
+        <div class="task"><span class="cb"></span><div><div class="title">Poner el reporte de los carry overs del sprint pasado</div></div></div>
+        <div class="task"><span class="cb"></span><div><div class="title">Cambiar REDIS para botscore</div><div class="meta"><span class="over">🔔 Yesterday 5:00 PM</span></div></div></div>
+      </div>
+      <div class="doneRow">▸ Done · 4</div>
+    </div>
+    <div class="add">＋ Add task<span class="hint">#project · tomorrow 9am</span></div>
+  </div>
+</div>
+</template>
+<script>
+  document.querySelectorAll('.slot').forEach(s => {
+    const w = document.getElementById('win').content.cloneNode(true);
+    if (s.classList.contains('light')) w.querySelector('.win').classList.add('light');
+    s.appendChild(w);
+  });
+</script>
