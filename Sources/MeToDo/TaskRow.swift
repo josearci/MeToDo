@@ -47,7 +47,7 @@ struct TaskRow: View {
         .contentShape(Rectangle())
         .onHover { hovering = $0 }
         .popover(isPresented: $showReminder, arrowEdge: .trailing) {
-            ReminderPicker(taskID: task.id, current: task.remindAt)
+            ReminderPicker(current: task.remindAt) { store.setReminder(task.id, $0) }
         }
         .onChange(of: ui.editingTaskID) { _, id in
             guard id == task.id else { return }

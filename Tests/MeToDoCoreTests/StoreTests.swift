@@ -20,6 +20,16 @@ import Foundation
         #expect(store.addTask("x", projectID: UUID())?.projectID == store.data.inbox.id)
     }
 
+    @Test func quickAddUsesPickedTimeUnlessTextHasOne() throws {
+        let store = makeStore()
+        let picked = iso("2026-10-08T15:30:00Z")
+        let a = try #require(store.quickAdd("Submit report", defaultProjectID: nil, inToday: false, remindAt: picked))
+        #expect(a.remindAt == picked)
+        let b = try #require(store.quickAdd("Call Ana tomorrow 5pm", defaultProjectID: nil, inToday: false, remindAt: picked))
+        #expect(b.remindAt != picked)
+        #expect(b.title == "Call Ana")
+    }
+
     @Test func quickAddUsesDefaultProjectAndTodayFlag() throws {
         let store = makeStore()
         let work = try #require(store.addProject(name: "Work", color: .green, emoji: "💼"))

@@ -1,16 +1,16 @@
 import SwiftUI
 import MeToDoCore
 
+/// Quick choices plus a custom date/time. Used for a task's reminder and for a new task's time.
 struct ReminderPicker: View {
-    @Environment(Store.self) private var store
     @Environment(\.dismiss) private var dismiss
-    let taskID: UUID
     let current: Date?
+    let onSet: (Date?) -> Void
     @State private var custom: Date
 
-    init(taskID: UUID, current: Date?) {
-        self.taskID = taskID
+    init(current: Date?, onSet: @escaping (Date?) -> Void) {
         self.current = current
+        self.onSet = onSet
         _custom = State(initialValue: current ?? Date().addingTimeInterval(3600))
     }
 
@@ -42,7 +42,7 @@ struct ReminderPicker: View {
     }
 
     private func set(_ date: Date?) {
-        store.setReminder(taskID, date)
+        onSet(date)
         dismiss()
     }
 }

@@ -11,6 +11,9 @@ struct AddField: View {
     @State private var text = ""
     /// Project picked from the chip; nil means "the view's default" (current project, else Inbox).
     @State private var pickedProjectID: UUID?
+    /// When the new task is due (its reminder). A time typed in the text wins over it.
+    @State private var pickedDate: Date?
+    @State private var showTimePicker = false
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -38,9 +41,12 @@ struct AddField: View {
                         complete(with: first)
                         return .handled
                     }
-                if text.isEmpty {
-                    Text("tomorrow 9am").font(.caption).foregroundStyle(.tertiary)
-                }
+                Button { showTimePicker = true } label: { TimeChip(date: pickedDate, now: ui.now) }
+                    .buttonStyle(.plain)
+                    .help("Pick when this task is due")
+                    .popover(isPresented: $showTimePicker, arrowEdge: .top) {
+                        ReminderPicker(current: pickedDate) { pickedDate = $0 }
+                    }
                 if let target = targetProject {
                     ProjectMenu(selected: target.id, onPick: { pickedProjectID = $0.id }) {
                         ProjectChip(project: target)
@@ -94,8 +100,9 @@ struct AddField: View {
 
     private func submit() {
         if partialTag != nil, let first = suggestions.first { complete(with: first); return }
-        guard store.quickAdd(text, defaultProjectID: targetProject?.id, inToday: inToday) != nil else { return }
+        guard store.quickAdd(text, defaultProjectID: targetProject?.id, inToday: inToday, remindAt: pickedDate) != nil else { return }
         text = ""
+        pickedDate = nil
         // Old typing history would otherwise capture the next ⌘Z meant for a task change.
         (NSApp.keyWindow?.firstResponder as? NSTextView)?.undoManager?.removeAllActions()
         focused = true

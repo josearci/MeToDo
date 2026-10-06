@@ -65,9 +65,10 @@ public final class Store {
     }
 
     @discardableResult
-    public func quickAdd(_ input: String, defaultProjectID: UUID?, inToday: Bool) -> TaskItem? {
+    /// `remindAt` is the time picked in the Add field; a time typed in the text wins over it.
+    public func quickAdd(_ input: String, defaultProjectID: UUID?, inToday: Bool, remindAt: Date? = nil) -> TaskItem? {
         guard let r = QuickAdd.parse(input, projects: data.projects, calendar: calendar) else { return nil }
-        return addTask(r.title, projectID: r.projectID ?? defaultProjectID, remindAt: r.remindAt, inToday: inToday)
+        return addTask(r.title, projectID: r.projectID ?? defaultProjectID, remindAt: r.remindAt ?? remindAt, inToday: inToday)
     }
 
     public func rename(_ id: UUID, to title: String) {

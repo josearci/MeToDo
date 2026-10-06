@@ -130,3 +130,17 @@ struct ProjectChip: View {
         .background(project.color.color.opacity(0.14), in: Capsule())
     }
 }
+
+/// The Add field's time chip: "Time" until a time is picked, then e.g. "Tomorrow 9:00 AM".
+struct TimeChip: View {
+    let date: Date?
+    let now: Date
+
+    var body: some View {
+        Label(date.map { Queries.reminderLabel($0, now: now) } ?? "Time", systemImage: "bell")
+            .font(.caption)
+            .foregroundStyle(date == nil ? AnyShapeStyle(.secondary) : AnyShapeStyle(.orange))
+            .padding(.horizontal, 7).padding(.vertical, 3)
+            .background((date == nil ? Color.secondary : .orange).opacity(0.14), in: Capsule())
+    }
+}
