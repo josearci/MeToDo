@@ -37,6 +37,7 @@ enum DebugProbe {
     private static var probeStore: Store?
     private static var probeUI: UIState?
     private static var popoverWindow: NSWindow?
+    private static var pickerWindow: NSWindow?
     private static var lastMenu: NSMenu?
 
     private static func perform(_ action: String, _ info: [AnyHashable: Any]) {
@@ -50,6 +51,16 @@ enum DebugProbe {
             win.orderFront(nil)
             popoverWindow = win
             lastHit = "popover preview opened"
+            return
+        }
+        if action == "picker" {
+            // Host the reminder picker in its own window for a snapshot.
+            let win = NSWindow(contentRect: NSRect(x: 600, y: 200, width: 300, height: 560), styleMask: [.titled], backing: .buffered, defer: false)
+            win.title = "Picker preview"
+            win.contentView = NSHostingView(rootView: ReminderPicker(current: nil) { _ in })
+            win.setContentSize(win.contentView!.fittingSize)
+            win.orderFront(nil)
+            pickerWindow = win
             return
         }
         if action == "status" {
