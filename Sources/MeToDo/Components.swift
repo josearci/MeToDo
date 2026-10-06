@@ -21,8 +21,14 @@ struct CheckBox: View {
                     }
                 }
                 .frame(width: size, height: size)
+                // A plain-style button only takes clicks on drawn pixels, and an unchecked box is just a
+                // 1.5pt outline, so clicks in its middle fell through to the row. Make the whole box, plus
+                // a little margin, clickable.
+                .padding(4)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .padding(-4)
         .accessibilityLabel(isOn ? "Mark as not done" : "Mark as done")
     }
 }
