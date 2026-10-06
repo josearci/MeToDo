@@ -26,7 +26,6 @@ struct SubtaskList: View {
         }
         .font(.system(size: 12.5))
         .padding(.vertical, 2)
-        .onAppear { if task.subtasks.isEmpty { addFocused = true } }
     }
 }
 

@@ -293,6 +293,43 @@ import Foundation
         #expect(record.clearedAt == iso("2026-10-06T18:00:00Z"))
     }
 
+    @Test func notesAreSavedAndReloaded() throws {
+        let url = tempURL()
+        let fixed = now
+        let a = makeStore(url: url, at: { fixed })
+        let t = try #require(a.addTask("With notes"))
+        a.setNotes(t.id, "Room 204\nBring the USB")
+        #expect(a.task(t.id)?.notes == "Room 204\nBring the USB")
+        a.saveNow()
+        let b = makeStore(url: url, at: { fixed })
+        #expect(b.task(t.id)?.notes == "Room 204\nBring the USB")
+    }
+
+    @Test func notesTypingDoesNotFloodTaskUndo() throws {
+        let fixed = now
+        let store = makeStore(at: { fixed })
+        let t = try #require(store.addTask("Typed"))
+        let um = UndoManager()
+        um.groupsByEvent = false
+        store.undoManager = um
+        um.beginUndoGrouping()
+        store.setNotes(t.id, "a")
+        store.setNotes(t.id, "ab")
+        um.endUndoGrouping()
+        if um.canUndo { um.undo() }   // the text view keeps typing undo; task undo must not revert notes
+        #expect(store.task(t.id)?.notes == "ab")
+    }
+
+    @Test func clearedTasksKeepTheirNotes() throws {
+        let fixed = now
+        let store = makeStore(at: { fixed })
+        let t = try #require(store.addTask("Noted"))
+        store.setNotes(t.id, "context")
+        store.toggleDone(t.id)
+        store.clearDone([t.id])
+        #expect(store.data.archive.first?.notes == "context")
+    }
+
     @Test func historyOutlivesItsProject() throws {
         let fixed = now
         let store = makeStore(at: { fixed })
@@ -330,6 +367,7 @@ import Foundation
         #expect(d.tasks.first?.title == "Old task")
         #expect(d.tasks.first?.createdAt == nil)
         #expect(d.tasks.first?.snoozeCount == 0)
+        #expect(d.tasks.first?.notes == "")
         #expect(d.archive.isEmpty)
     }
 }

@@ -183,3 +183,36 @@ struct WindowReader: NSViewRepresentable {
 
     func updateNSView(_ nsView: NSView, context: Context) {}
 }
+
+/// Notes shown when a task is expanded. Saved as you type; ⌘Z undoes typing.
+struct NotesEditor: View {
+    @Environment(Store.self) private var store
+    let task: TaskItem
+    @State private var text: String
+
+    init(task: TaskItem) {
+        self.task = task
+        _text = State(initialValue: task.notes)
+    }
+
+    var body: some View {
+        TextEditor(text: $text)
+            .font(.system(size: 12.5))
+            .scrollContentBackground(.hidden)
+            .frame(minHeight: 44, maxHeight: 160)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 4).padding(.vertical, 4)
+            .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
+            .overlay(alignment: .topLeading) {
+                if text.isEmpty {
+                    Text("Add notes…")
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(.tertiary)
+                        .padding(.horizontal, 9).padding(.vertical, 4)
+                        .allowsHitTesting(false)
+                }
+            }
+            .onChange(of: text) { _, new in store.setNotes(task.id, new) }
+            .onChange(of: task.notes) { _, new in if new != text { text = new } }
+    }
+}

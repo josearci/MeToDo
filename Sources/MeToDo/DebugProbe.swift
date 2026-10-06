@@ -63,6 +63,14 @@ enum DebugProbe {
             pickerWindow = win
             return
         }
+        if action == "expand" || action == "note" {
+            // State shortcuts for layout checks: expand a task / set its notes (by title).
+            guard let store = probeStore, let ui = probeUI,
+                  let task = store.data.tasks.first(where: { $0.title == info["title"] as? String }) else { lastHit = "no task"; return }
+            if action == "expand" { ui.toggleExpanded(task.id) } else { store.setNotes(task.id, info["text"] as? String ?? "") }
+            lastHit = "\(action) \(task.title)"
+            return
+        }
         if action == "status" {
             // Click the menu bar icon to toggle the popover.
             let button = NSApp.windows.filter { "\(type(of: $0))" == "NSStatusBarWindow" && $0.isVisible }
@@ -110,7 +118,13 @@ enum DebugProbe {
         case "type":
             // Focus the text field under the point, insert "text", optionally press Return.
             var v = w.contentView?.superview?.hitTest(p)
-            while let view = v, !(view is NSTextField) { v = view.superview }
+            while let view = v, !(view is NSTextField), !(view is NSTextView) { v = view.superview }
+            if let textView = v as? NSTextView {   // multi-line editors (notes)
+                w.makeFirstResponder(textView)
+                textView.insertText(info["text"] as? String ?? "", replacementRange: textView.selectedRange())
+                lastHit = "typed into \(type(of: textView))"
+                break
+            }
             guard let field = v as? NSTextField else { lastHit = "no text field"; break }
             w.makeFirstResponder(field)
             let editor = field.currentEditor() as? NSTextView

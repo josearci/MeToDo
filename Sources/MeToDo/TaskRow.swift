@@ -33,11 +33,16 @@ struct TaskRow: View {
                     title
                     meta
                 }
-                Spacer(minLength: 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 if !task.isDone && (hovering || alwaysShowSun) { actions }
             }
             if isExpanded {
-                SubtaskList(task: task, color: color).padding(.leading, 24)
+                VStack(alignment: .leading, spacing: 8) {
+                    NotesEditor(task: task)
+                    SubtaskList(task: task, color: color)
+                }
+                .padding(.leading, 24)
+                .padding(.top, 4)
             }
         }
         .font(.system(size: compact ? 12.5 : 13))
@@ -66,17 +71,25 @@ struct TaskRow: View {
                 .onExitCommand { editing = false }
                 .onChange(of: titleFocused) { _, focused in if !focused { commitEdit() } }
         } else {
-            Text(task.title)
-                .foregroundStyle(task.isDone ? AnyShapeStyle(.secondary) : AnyShapeStyle(color.titleColor))
-                .strikethrough(task.isDone)
-                .onTapGesture(perform: beginEditing)
+            // Clicking the title line expands the task (notes + subtasks). Rename: right-click → Rename, or Return.
+            // A Button (not a tap gesture) so the click is never held back or swallowed by the list.
+            Button { ui.toggleExpanded(task.id) } label: {
+                Text(task.title)
+                    .foregroundStyle(task.isDone ? AnyShapeStyle(.secondary) : AnyShapeStyle(color.titleColor))
+                    .strikethrough(task.isDone)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(isExpanded ? "Hide notes" : "Show notes and subtasks")
         }
     }
 
     @ViewBuilder private var meta: some View {
         let progress = task.subtaskProgress
         let tag = showProjectTag ? project : nil
-        if progress.total > 0 || task.remindAt != nil || task.inToday || tag != nil {
+        let hasNotes = !task.notes.isEmpty && !isExpanded
+        if progress.total > 0 || task.remindAt != nil || task.inToday || tag != nil || hasNotes {
             HStack(spacing: 10) {
                 if progress.total > 0 {
                     Button { ui.toggleExpanded(task.id) } label: {
@@ -93,6 +106,9 @@ struct TaskRow: View {
                 if let remindAt = task.remindAt {
                     Label(Queries.reminderLabel(remindAt, now: ui.now), systemImage: "bell")
                         .foregroundStyle(Queries.isOverdue(task, now: ui.now) ? AnyShapeStyle(.red) : AnyShapeStyle(.secondary))
+                }
+                if hasNotes {
+                    Image(systemName: "note.text").help("Has notes")
                 }
                 if task.inToday && tag == nil {
                     Image(systemName: "sun.max.fill").foregroundStyle(.yellow)
@@ -130,6 +146,7 @@ struct TaskRow: View {
     }
 
     @ViewBuilder private var contextMenu: some View {
+        Button("Rename") { beginEditing() }
         Button(task.inToday ? "Remove from Today" : "Add to Today") { store.toggleToday(task.id) }
         Button("Add Subtask") { ui.expanded.insert(task.id) }
         Button("Set Reminder…") { showReminder = true }

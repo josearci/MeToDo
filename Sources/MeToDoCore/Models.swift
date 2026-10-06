@@ -52,10 +52,12 @@ public struct TaskItem: Codable, Identifiable, Hashable, Sendable {
     /// nil for tasks created before this was tracked.
     public var createdAt: Date?
     public var snoozeCount: Int
+    /// Free-form extra information, shown when the task is expanded.
+    public var notes: String
 
     public init(id: UUID = UUID(), projectID: UUID, title: String, isDone: Bool = false,
                 completedAt: Date? = nil, remindAt: Date? = nil, inToday: Bool = false,
-                subtasks: [Subtask] = [], createdAt: Date? = nil, snoozeCount: Int = 0) {
+                subtasks: [Subtask] = [], createdAt: Date? = nil, snoozeCount: Int = 0, notes: String = "") {
         self.id = id
         self.projectID = projectID
         self.title = title
@@ -66,6 +68,7 @@ public struct TaskItem: Codable, Identifiable, Hashable, Sendable {
         self.subtasks = subtasks
         self.createdAt = createdAt
         self.snoozeCount = snoozeCount
+        self.notes = notes
     }
 
     /// Fields added later default when missing, so older data files keep loading.
@@ -81,6 +84,7 @@ public struct TaskItem: Codable, Identifiable, Hashable, Sendable {
         subtasks = try c.decodeIfPresent([Subtask].self, forKey: .subtasks) ?? []
         createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt)
         snoozeCount = try c.decodeIfPresent(Int.self, forKey: .snoozeCount) ?? 0
+        notes = try c.decodeIfPresent(String.self, forKey: .notes) ?? ""
     }
 
     public var subtaskProgress: (done: Int, total: Int) {
@@ -108,6 +112,8 @@ public struct CompletedTask: Codable, Equatable, Identifiable, Sendable {
     public var subtasksDone: Int
     public var subtasksTotal: Int
     public var clearedAt: Date
+    /// Optional so history saved before notes existed still loads.
+    public var notes: String?
 
     public init(task: TaskItem, project: Project?, clearedAt: Date) {
         id = task.id
@@ -124,6 +130,7 @@ public struct CompletedTask: Codable, Equatable, Identifiable, Sendable {
         snoozeCount = task.snoozeCount
         (subtasksDone, subtasksTotal) = task.subtaskProgress
         self.clearedAt = clearedAt
+        notes = task.notes.isEmpty ? nil : task.notes
     }
 }
 

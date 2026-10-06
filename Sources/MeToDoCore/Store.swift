@@ -92,6 +92,12 @@ public final class Store {
         toggleDone(id)
     }
 
+    /// Saved on every keystroke (nothing lost if the app quits mid-typing) but not added to the
+    /// task undo stack: the notes text view has its own typing undo.
+    public func setNotes(_ id: UUID, _ notes: String) {
+        updateTask(id, "Edit Notes", undoable: false) { $0.notes = notes }
+    }
+
     public func toggleToday(_ id: UUID) {
         updateTask(id, "Toggle Today") { $0.inToday.toggle() }
     }
@@ -224,16 +230,16 @@ public final class Store {
 
     // MARK: Plumbing
 
-    private func mutate(_ name: String, _ change: (inout AppData) -> Void) {
+    private func mutate(_ name: String, undoable: Bool = true, _ change: (inout AppData) -> Void) {
         let before = data
         change(&data)
         guard data != before else { return }
-        registerUndo(restoring: before, name)
+        if undoable { registerUndo(restoring: before, name) }
         didChange()
     }
 
-    private func updateTask(_ id: UUID, _ name: String, _ change: (inout TaskItem) -> Void) {
-        mutate(name) { d in
+    private func updateTask(_ id: UUID, _ name: String, undoable: Bool = true, _ change: (inout TaskItem) -> Void) {
+        mutate(name, undoable: undoable) { d in
             if let i = d.tasks.firstIndex(where: { $0.id == id }) { change(&d.tasks[i]) }
         }
     }
