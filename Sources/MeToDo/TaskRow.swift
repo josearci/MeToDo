@@ -42,7 +42,7 @@ struct TaskRow: View {
         }
         .font(.system(size: compact ? 12.5 : 13))
         .padding(.vertical, compact ? 4 : 5)
-        .opacity(pendingDone ? 0.4 : 1)
+        .opacity(pendingDone ? 0.4 : task.isDone ? 0.6 : 1)
         .animation(.easeOut(duration: 0.2), value: pendingDone)
         .contentShape(Rectangle())
         .onHover { hovering = $0 }

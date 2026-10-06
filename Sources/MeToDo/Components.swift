@@ -131,6 +131,25 @@ struct ProjectChip: View {
     }
 }
 
+/// Finished tasks stay visible (crossed out) under this header until cleared into the history.
+struct DoneHeader: View {
+    let count: Int
+    let onClear: () -> Void
+
+    var body: some View {
+        HStack {
+            Text("Done · \(count)")
+            Spacer()
+            Button("Clear done", action: onClear)
+                .buttonStyle(.borderless)
+                .help("Remove finished tasks from the list. They're kept in your history.")
+        }
+        .font(.system(size: 12))
+        .foregroundStyle(.secondary)
+        .padding(.top, 10)
+    }
+}
+
 /// The Add field's time chip: "Time" until a time is picked, then e.g. "Tomorrow 9:00 AM".
 struct TimeChip: View {
     let date: Date?

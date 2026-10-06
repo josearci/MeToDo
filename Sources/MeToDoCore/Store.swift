@@ -59,7 +59,7 @@ public final class Store {
         let title = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !title.isEmpty else { return nil }
         let pid = projectID.flatMap { project($0)?.id } ?? data.inbox.id
-        let task = TaskItem(projectID: pid, title: title, remindAt: remindAt, inToday: inToday)
+        let task = TaskItem(projectID: pid, title: title, remindAt: remindAt, inToday: inToday, createdAt: now())
         mutate("Add Task") { $0.tasks.append(task) }
         return task
     }
@@ -107,7 +107,10 @@ public final class Store {
         case .oneHour: n.addingTimeInterval(60 * 60)
         case .tomorrowMorning: Queries.at(hour: 9, daysFromNow: 1, now: n, calendar: calendar)
         }
-        setReminder(id, date)
+        updateTask(id, "Snooze") { t in
+            t.remindAt = date
+            t.snoozeCount += 1
+        }
     }
 
     public func move(_ id: UUID, toProject projectID: UUID) {
@@ -119,9 +122,16 @@ public final class Store {
         mutate("Delete Task") { $0.tasks.removeAll { $0.id == id } }
     }
 
+    /// Removes done tasks from the lists, keeping each one in `data.archive` for analytics.
     public func clearDone(_ ids: [UUID]) {
         let ids = Set(ids)
-        mutate("Clear Done") { $0.tasks.removeAll { $0.isDone && ids.contains($0.id) } }
+        let stamp = now()
+        mutate("Clear Done") { d in
+            let cleared = d.tasks.filter { $0.isDone && ids.contains($0.id) }
+            let projects = Dictionary(d.projects.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+            d.archive += cleared.map { CompletedTask(task: $0, project: projects[$0.projectID], clearedAt: stamp) }
+            d.tasks.removeAll { $0.isDone && ids.contains($0.id) }
+        }
     }
 
     /// Reorders the tasks of one list (`displayedIDs`, in display order) like SwiftUI's onMove,

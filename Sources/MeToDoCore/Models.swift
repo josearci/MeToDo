@@ -49,10 +49,13 @@ public struct TaskItem: Codable, Identifiable, Hashable, Sendable {
     /// Pulled into Today by hand (☀️). Cleared when the task is completed.
     public var inToday: Bool
     public var subtasks: [Subtask]
+    /// nil for tasks created before this was tracked.
+    public var createdAt: Date?
+    public var snoozeCount: Int
 
     public init(id: UUID = UUID(), projectID: UUID, title: String, isDone: Bool = false,
                 completedAt: Date? = nil, remindAt: Date? = nil, inToday: Bool = false,
-                subtasks: [Subtask] = []) {
+                subtasks: [Subtask] = [], createdAt: Date? = nil, snoozeCount: Int = 0) {
         self.id = id
         self.projectID = projectID
         self.title = title
@@ -61,10 +64,66 @@ public struct TaskItem: Codable, Identifiable, Hashable, Sendable {
         self.remindAt = remindAt
         self.inToday = inToday
         self.subtasks = subtasks
+        self.createdAt = createdAt
+        self.snoozeCount = snoozeCount
+    }
+
+    /// Fields added later default when missing, so older data files keep loading.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        projectID = try c.decode(UUID.self, forKey: .projectID)
+        title = try c.decode(String.self, forKey: .title)
+        isDone = try c.decodeIfPresent(Bool.self, forKey: .isDone) ?? false
+        completedAt = try c.decodeIfPresent(Date.self, forKey: .completedAt)
+        remindAt = try c.decodeIfPresent(Date.self, forKey: .remindAt)
+        inToday = try c.decodeIfPresent(Bool.self, forKey: .inToday) ?? false
+        subtasks = try c.decodeIfPresent([Subtask].self, forKey: .subtasks) ?? []
+        createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt)
+        snoozeCount = try c.decodeIfPresent(Int.self, forKey: .snoozeCount) ?? 0
     }
 
     public var subtaskProgress: (done: Int, total: Int) {
         (subtasks.filter(\.isDone).count, subtasks.count)
+    }
+}
+
+/// A finished task that was cleared from the lists, kept for analytics. The project is
+/// snapshotted so renaming or deleting it later doesn't rewrite history.
+public struct CompletedTask: Codable, Equatable, Identifiable, Sendable {
+    /// The original task's id.
+    public var id: UUID
+    public var title: String
+    public var projectID: UUID
+    public var projectName: String
+    public var projectEmoji: String?
+    public var projectColor: ProjectColor
+    public var createdAt: Date?
+    public var completedAt: Date
+    /// The reminder time the task had when it was completed.
+    public var dueAt: Date?
+    /// Completed after it was due.
+    public var wasOverdue: Bool
+    public var snoozeCount: Int
+    public var subtasksDone: Int
+    public var subtasksTotal: Int
+    public var clearedAt: Date
+
+    public init(task: TaskItem, project: Project?, clearedAt: Date) {
+        id = task.id
+        title = task.title
+        projectID = task.projectID
+        projectName = project?.name ?? "Deleted project"
+        projectEmoji = project?.emoji
+        projectColor = project?.color ?? .gray
+        createdAt = task.createdAt
+        let completed = task.completedAt ?? clearedAt
+        completedAt = completed
+        dueAt = task.remindAt
+        wasOverdue = task.remindAt.map { completed > $0 } ?? false
+        snoozeCount = task.snoozeCount
+        (subtasksDone, subtasksTotal) = task.subtaskProgress
+        self.clearedAt = clearedAt
     }
 }
 
@@ -73,11 +132,22 @@ public struct AppData: Codable, Equatable, Sendable {
     public var version: Int
     public var projects: [Project]
     public var tasks: [TaskItem]
+    /// Completed tasks cleared from the lists, oldest first (analytics history).
+    public var archive: [CompletedTask]
 
-    public init(version: Int = 1, projects: [Project], tasks: [TaskItem] = []) {
+    public init(version: Int = 1, projects: [Project], tasks: [TaskItem] = [], archive: [CompletedTask] = []) {
         self.version = version
         self.projects = projects
         self.tasks = tasks
+        self.archive = archive
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        version = try c.decodeIfPresent(Int.self, forKey: .version) ?? 1
+        projects = try c.decode([Project].self, forKey: .projects)
+        tasks = try c.decode([TaskItem].self, forKey: .tasks)
+        archive = try c.decodeIfPresent([CompletedTask].self, forKey: .archive) ?? []
     }
 
     public static func fresh() -> AppData {

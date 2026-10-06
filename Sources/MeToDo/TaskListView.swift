@@ -4,7 +4,6 @@ import MeToDoCore
 struct TaskListView: View {
     @Environment(Store.self) private var store
     @Environment(UIState.self) private var ui
-    @State private var showDone = false
 
     var body: some View {
         @Bindable var ui = ui
@@ -77,23 +76,10 @@ struct TaskListView: View {
     @ViewBuilder private func doneSection(_ done: [TaskItem]) -> some View {
         if !done.isEmpty {
             Section {
-                if showDone {
-                    ForEach(done) { TaskRow(task: $0).listRowSeparator(.hidden) }
-                }
-            } header: {
-                HStack {
-                    Button { showDone.toggle() } label: {
-                        Label("Done · \(done.count)", systemImage: showDone ? "chevron.down" : "chevron.right")
-                    }
-                    .buttonStyle(.plain)
-                    Spacer()
-                    if showDone {
-                        Button("Clear") { store.clearDone(done.map(\.id)) }.buttonStyle(.borderless)
-                    }
-                }
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
-                .padding(.top, 10)
+                DoneHeader(count: done.count) { store.clearDone(done.map(\.id)) }
+                    .listRowSeparator(.hidden)
+                    .selectionDisabled()
+                ForEach(done) { TaskRow(task: $0).listRowSeparator(.hidden) }
             }
         }
     }
@@ -101,7 +87,7 @@ struct TaskListView: View {
     private func doneTasks(_ data: AppData) -> [TaskItem] {
         switch ui.sidebar {
         case .today:
-            Queries.done(data).filter { $0.completedAt.map { Calendar.current.isDate($0, inSameDayAs: ui.now) } ?? false }
+            Queries.doneToday(data, now: ui.now)
         case .all:
             Queries.done(data)
         case .project(let id):

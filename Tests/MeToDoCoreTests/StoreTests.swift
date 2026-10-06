@@ -234,3 +234,102 @@ import Foundation
         #expect(store.data.projects.count == 1)
     }
 }
+
+@MainActor
+@Suite struct HistoryTests {
+    let now = iso("2026-10-06T10:00:00Z")
+
+    func makeStore(url: URL? = nil, at time: @escaping () -> Date) -> Store {
+        Store(persistence: url.map { Persistence(url: $0) }, now: time, calendar: utc)
+    }
+
+    @Test func newTasksRecordWhenTheyWereCreated() throws {
+        let fixed = now
+        let store = makeStore(at: { fixed })
+        let t = try #require(store.addTask("Write"))
+        #expect(t.createdAt == now)
+    }
+
+    @Test func snoozingIsCounted() throws {
+        let fixed = now
+        let store = makeStore(at: { fixed })
+        let t = try #require(store.addTask("Call"))
+        store.snooze(t.id, .tenMinutes)
+        store.snooze(t.id, .oneHour)
+        #expect(store.task(t.id)?.snoozeCount == 2)
+    }
+
+    @Test func clearingDoneArchivesASnapshotForAnalytics() throws {
+        var clock = iso("2026-10-06T08:00:00Z")
+        let store = makeStore(at: { clock })
+        let work = try #require(store.addProject(name: "Work", color: .green, emoji: "💼"))
+        let late = try #require(store.addTask("Ship report", projectID: work.id, remindAt: iso("2026-10-06T09:00:00Z")))
+        store.addSubtask(late.id, title: "draft")
+        let sub2 = try #require(store.addSubtask(late.id, title: "send"))
+        store.toggleSubtask(late.id, sub2.id)
+        store.snooze(late.id, .tenMinutes)                    // due 08:10
+        let open = try #require(store.addTask("Still open"))
+        clock = iso("2026-10-06T09:30:00Z")
+        store.toggleDone(late.id)
+        clock = iso("2026-10-06T18:00:00Z")
+        store.clearDone([late.id, open.id])
+
+        #expect(store.data.tasks.map(\.title) == ["Still open"])
+        let record = try #require(store.data.archive.first)
+        #expect(store.data.archive.count == 1)
+        #expect(record.id == late.id)
+        #expect(record.title == "Ship report")
+        #expect(record.projectID == work.id)
+        #expect(record.projectName == "Work")
+        #expect(record.projectEmoji == "💼")
+        #expect(record.projectColor == .green)
+        #expect(record.createdAt == iso("2026-10-06T08:00:00Z"))
+        #expect(record.completedAt == iso("2026-10-06T09:30:00Z"))
+        #expect(record.dueAt == iso("2026-10-06T08:10:00Z"))
+        #expect(record.wasOverdue)
+        #expect(record.snoozeCount == 1)
+        #expect(record.subtasksDone == 1)
+        #expect(record.subtasksTotal == 2)
+        #expect(record.clearedAt == iso("2026-10-06T18:00:00Z"))
+    }
+
+    @Test func historyOutlivesItsProject() throws {
+        let fixed = now
+        let store = makeStore(at: { fixed })
+        let p = try #require(store.addProject(name: "Old", color: .red, emoji: nil))
+        let t = try #require(store.addTask("Done thing", projectID: p.id))
+        store.toggleDone(t.id)
+        store.clearDone([t.id])
+        store.deleteProject(p.id)
+        #expect(store.data.archive.first?.projectName == "Old")
+    }
+
+    @Test func historyIsSavedAndReloaded() throws {
+        let url = tempURL()
+        let fixed = now
+        let a = makeStore(url: url, at: { fixed })
+        let t = try #require(a.addTask("Keep history"))
+        a.toggleDone(t.id)
+        a.clearDone([t.id])
+        a.saveNow()
+        let b = makeStore(url: url, at: { fixed })
+        #expect(b.data.archive == a.data.archive)
+        #expect(b.data.archive.count == 1)
+    }
+
+    @Test func filesFromBeforeHistoryStillLoad() throws {
+        let json = """
+        {"version":1,"projects":[{"id":"6B1E1D3C-1111-4F00-9A00-000000000001","name":"Inbox","color":"gray","emoji":"📥","isInbox":true}],
+         "tasks":[{"id":"6B1E1D3C-1111-4F00-9A00-000000000002","projectID":"6B1E1D3C-1111-4F00-9A00-000000000001",
+                   "title":"Old task","isDone":false,"inToday":true,"subtasks":[]}]}
+        """
+        let url = tempURL()
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data(json.utf8).write(to: url)
+        guard case .loaded(let d) = Persistence(url: url).load() else { Issue.record("old file should load"); return }
+        #expect(d.tasks.first?.title == "Old task")
+        #expect(d.tasks.first?.createdAt == nil)
+        #expect(d.tasks.first?.snoozeCount == 0)
+        #expect(d.archive.isEmpty)
+    }
+}

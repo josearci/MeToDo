@@ -85,6 +85,11 @@ struct PopoverView: View {
                 ForEach(today) { TaskRow(task: $0, showProjectTag: true, compact: true) }
             }
         }
+        let done = ui.popoverShowsAll ? Queries.done(data) : Queries.doneToday(data, now: ui.now)
+        if !done.isEmpty {
+            DoneHeader(count: done.count) { store.clearDone(done.map(\.id)) }
+            ForEach(done) { TaskRow(task: $0, showProjectTag: true, compact: true) }
+        }
     }
 
     private var footer: some View {

@@ -53,6 +53,11 @@ public enum Queries {
             .sorted { ($0.completedAt ?? .distantPast) > ($1.completedAt ?? .distantPast) }
     }
 
+    /// Tasks completed today, most recent first (the Today view's Done section).
+    public static func doneToday(_ data: AppData, now: Date, calendar: Calendar = .current) -> [TaskItem] {
+        done(data).filter { $0.completedAt.map { calendar.isDate($0, inSameDayAs: now) } ?? false }
+    }
+
     public static func openCount(_ data: AppData, project: UUID) -> Int {
         data.tasks.count(where: { !$0.isDone && $0.projectID == project })
     }

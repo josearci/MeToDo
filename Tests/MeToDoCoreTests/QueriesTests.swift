@@ -63,6 +63,13 @@ import Foundation
         #expect(Queries.openCount(data([old, new, TaskItem(projectID: work.id, title: "o")]), project: work.id) == 1)
     }
 
+    @Test func doneTodayOnlyHasTasksCompletedToday() {
+        let today = TaskItem(projectID: work.id, title: "today", isDone: true, completedAt: iso("2026-10-06T08:00:00Z"))
+        let earlier = TaskItem(projectID: work.id, title: "earlier", isDone: true, completedAt: iso("2026-10-05T23:00:00Z"))
+        let open = TaskItem(projectID: work.id, title: "open")
+        #expect(Queries.doneToday(data([today, earlier, open]), now: now, calendar: utc).map(\.title) == ["today"])
+    }
+
     @Test func atBuildsLocalTimes() {
         #expect(Queries.at(hour: 9, daysFromNow: 1, now: now, calendar: utc) == iso("2026-10-07T09:00:00Z"))
         #expect(Queries.at(hour: 0, daysFromNow: 1, now: now, calendar: utc) == iso("2026-10-07T00:00:00Z"))
