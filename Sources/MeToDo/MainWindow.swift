@@ -12,7 +12,11 @@ struct MainWindow: View {
         }
         .frame(minWidth: 640, minHeight: 420)
         // No green zoom button: close + minimize fit the icon-only sidebar. Full screen stays in View (⌃⌘F).
-        .background(WindowReader { $0?.standardWindowButton(.zoomButton)?.isHidden = true })
+        .background(WindowReader { window in
+            window?.standardWindowButton(.zoomButton)?.isHidden = true
+            // The title bar's separator overshot the sidebar divider by 2px, leaving a step in the line.
+            window?.titlebarSeparatorStyle = .none
+        })
         .overlay(alignment: .bottom) {
             if let error = store.saveError { WarningBanner(text: error).padding(.bottom, 60) }
         }
