@@ -37,6 +37,7 @@ private struct SubtaskRow: View {
     let color: ProjectColor
     @State private var editing = false
     @State private var draft = ""
+    @FocusState private var fieldFocused: Bool
 
     var body: some View {
         HStack(spacing: 8) {
@@ -44,13 +45,19 @@ private struct SubtaskRow: View {
             if editing {
                 TextField("Subtask", text: $draft)
                     .textFieldStyle(.plain)
+                    .focused($fieldFocused)
                     .onSubmit(commit)
                     .onExitCommand { editing = false }
+                    .onChange(of: fieldFocused) { _, focused in if !focused { commit() } }
             } else {
                 Text(subtask.title)
                     .strikethrough(subtask.isDone)
                     .foregroundStyle(subtask.isDone ? .secondary : .primary)
-                    .onTapGesture { draft = subtask.title; editing = true }
+                    .onTapGesture {
+                        draft = subtask.title
+                        editing = true
+                        DispatchQueue.main.async { fieldFocused = true }
+                    }
             }
         }
         .contextMenu {
@@ -60,6 +67,7 @@ private struct SubtaskRow: View {
 
     /// Clearing the text deletes the subtask.
     private func commit() {
+        guard editing else { return }
         if draft.trimmingCharacters(in: .whitespaces).isEmpty {
             store.deleteSubtask(taskID, subtask.id)
         } else {

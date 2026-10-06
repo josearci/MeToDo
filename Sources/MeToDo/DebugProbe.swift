@@ -76,9 +76,7 @@ enum DebugProbe {
         }
         switch action {
         case "click", "dblclick":
-            // Through the window (so SwiftUI gesture recognizers see it). The app can't activate while
-            // the screen is locked, so every view is made to accept the first click on an inactive window.
-            acceptFirstMouseEverywhere(w)
+            // Through the window so SwiftUI gesture recognizers see it (needs an unlocked, active app).
             lastHit = w.contentView?.superview?.hitTest(p).map { "\(type(of: $0))" } ?? "nil"
             for n in action == "click" ? [1] : [1, 2] {
                 NSApp.postEvent(mouse(.leftMouseUp, n), atStart: false)   // dequeued by the mouseDown tracking loop
@@ -173,17 +171,6 @@ enum DebugProbe {
                 w.sendEvent(e)
             }
         default: break
-        }
-    }
-
-    private static var patched = Set<ObjectIdentifier>()
-
-    private static func acceptFirstMouseEverywhere(_ w: NSWindow) {
-        let yes: @convention(block) (AnyObject, NSEvent?) -> Bool = { _, _ in true }
-        for v in allSubviews(w.contentView?.superview) {
-            let cls: AnyClass = type(of: v)
-            guard patched.insert(ObjectIdentifier(cls)).inserted else { continue }
-            class_replaceMethod(cls, #selector(NSView.acceptsFirstMouse(for:)), imp_implementationWithBlock(yes), "c@:@")
         }
     }
 

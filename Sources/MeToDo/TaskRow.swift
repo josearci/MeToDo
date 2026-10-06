@@ -167,7 +167,7 @@ struct TaskRow: View {
             try? await Task.sleep(for: .seconds(1))
             guard pendingDone, generation == doneGeneration else { return }
             pendingDone = false
-            store.toggleDone(task.id)
+            store.complete(task.id)   // idempotent: it may have been completed elsewhere meanwhile
         }
     }
 }

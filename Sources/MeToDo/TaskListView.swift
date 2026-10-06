@@ -22,9 +22,13 @@ struct TaskListView: View {
                         ForEach(today) { TaskRow(task: $0, showProjectTag: true).listRowSeparator(.hidden) }
                     }
                 case .all:
-                    groups(Queries.open(data), movable: true)
+                    let open = Queries.open(data)
+                    if open.isEmpty { emptyState }
+                    groups(open, movable: true)
                 case .project(let id):
-                    groups(Queries.open(data, project: id), movable: true)
+                    let open = Queries.open(data, project: id)
+                    if open.isEmpty { emptyState }
+                    groups(open, movable: true)
                 }
                 doneSection(doneTasks(data))
             }
@@ -47,6 +51,8 @@ struct TaskListView: View {
     @ViewBuilder private func groups(_ tasks: [TaskItem], movable: Bool, alwaysShowSun: Bool = false) -> some View {
         ForEach(Queries.grouped(tasks, projects: store.data.projects)) { g in
             Section {
+                // The header is a row (not a Section header) so its rail lines up with the tasks'.
+                GroupHeader(project: g.project).rail(g.project.color).selectionDisabled()
                 ForEach(g.tasks) { t in
                     TaskRow(task: t, alwaysShowSun: alwaysShowSun)
                         .rail(g.project.color)
@@ -55,10 +61,17 @@ struct TaskListView: View {
                 .onMove(perform: movable ? { (from: IndexSet, to: Int) in
                     store.moveTasks(g.tasks.map(\.id), fromOffsets: from, toOffset: to)
                 } : nil)
-            } header: {
-                GroupHeader(project: g.project).rail(g.project.color)
             }
         }
+    }
+
+    private var emptyState: some View {
+        Text("No open tasks · add one below")
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity)
+            .padding(.top, 40)
+            .listRowSeparator(.hidden)
+            .selectionDisabled()
     }
 
     @ViewBuilder private func doneSection(_ done: [TaskItem]) -> some View {
