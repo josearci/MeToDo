@@ -11,7 +11,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var timer: Timer?
 
     override init() {
+        #if DEBUG
+        store = Store(persistence: Persistence(url: DebugProbe.dataURL ?? Persistence.defaultURL))
+        #else
         store = Store(persistence: Persistence(url: Persistence.defaultURL))
+        #endif
         ui = UIState()
         reminders = ReminderScheduler(store: store, ui: ui)
         super.init()
@@ -23,6 +27,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        #if DEBUG
+        DebugProbe.install(store: store, ui: ui)
+        #endif
         if !UserDefaults.standard.bool(forKey: "didFirstLaunch") {
             UserDefaults.standard.set(true, forKey: "didFirstLaunch")
             LoginItem.set(true)

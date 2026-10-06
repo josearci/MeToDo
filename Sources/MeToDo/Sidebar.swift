@@ -15,17 +15,17 @@ struct Sidebar: View {
             row("Today", count: Queries.today(data, now: ui.now).count) {
                 Image(systemName: "sun.max.fill").foregroundStyle(.yellow)
             }
-            .tag(Optional(SidebarItem.today))
+            .tag(SidebarItem.today)
             row("All", count: Queries.open(data).count) {
                 Image(systemName: "tray.full").foregroundStyle(.secondary)
             }
-            .tag(Optional(SidebarItem.all))
+            .tag(SidebarItem.all)
             Section("Projects") {
                 ForEach(data.projects) { p in
                     row(p.displayName, count: Queries.openCount(data, project: p.id)) {
                         Circle().fill(p.color.color).frame(width: 8, height: 8)
                     }
-                    .tag(Optional(SidebarItem.project(p.id)))
+                    .tag(SidebarItem.project(p.id))
                     .contextMenu {
                         Button("Edit…") { editing = p }
                         if !p.isInbox { Button("Delete…", role: .destructive) { deleting = p } }
