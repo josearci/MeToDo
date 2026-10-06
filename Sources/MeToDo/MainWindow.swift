@@ -6,7 +6,7 @@ struct MainWindow: View {
 
     var body: some View {
         NavigationSplitView {
-            Sidebar().navigationSplitViewColumnWidth(min: 180, ideal: 200, max: 280)
+            Sidebar().navigationSplitViewColumnWidth(min: 60, ideal: 200, max: 280)
         } detail: {
             TaskListView()
         }

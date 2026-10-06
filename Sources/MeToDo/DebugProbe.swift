@@ -174,6 +174,11 @@ enum DebugProbe {
                 let ok = found[nth].accessibilityPerformPress()
                 lastHit = "pressed \(needle)#\(nth) of \(found.count) ok=\(ok)"
             } else { lastHit = "no button '\(needle)' (\(found.count) found)" }
+        case "sidebarWidth":
+            // Same as dragging the sidebar divider.
+            let split = allSubviews(w.contentView).compactMap { $0 as? NSSplitView }.first
+            split?.setPosition(CGFloat(Double(info["w"] as? String ?? "200") ?? 200), ofDividerAt: 0)
+            lastHit = split == nil ? "no split view" : "sidebar width set"
         case "menu":
             // "path" like "Move to/🏠 Home": walk the last context menu and fire the item.
             var menu = lastMenu
