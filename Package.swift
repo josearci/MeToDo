@@ -6,6 +6,7 @@ let package = Package(
     platforms: [.macOS(.v15)],
     targets: [
         .target(name: "MeToDoCore"),
+        .executableTarget(name: "MeToDo", dependencies: ["MeToDoCore"]),
         .testTarget(name: "MeToDoCoreTests", dependencies: ["MeToDoCore"]),
     ],
     // ponytail: Swift 5 mode skips strict-concurrency ceremony around AppKit/UserNotifications delegates; move to .v6 if the app ever does real background work.
