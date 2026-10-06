@@ -92,6 +92,25 @@ public struct AppData: Codable, Equatable, Sendable {
     /// Makes hand-edited or old files safe: puts the Inbox back on top and
     /// re-homes tasks whose project no longer exists.
     public mutating func repair() {
+        // Duplicate ids would confuse SwiftUI lists and delete more than intended; later copies
+        // get fresh ids (their tasks stay with the first), and only the first Inbox stays the Inbox.
+        var seen = Set<UUID>()
+        var hasInbox = false
+        for i in projects.indices {
+            if !seen.insert(projects[i].id).inserted {
+                projects[i].id = UUID()
+                seen.insert(projects[i].id)
+            }
+            if projects[i].isInbox {
+                if hasInbox { projects[i].isInbox = false }
+                hasInbox = true
+            }
+        }
+        seen = []
+        for i in tasks.indices where !seen.insert(tasks[i].id).inserted {
+            tasks[i].id = UUID()
+            seen.insert(tasks[i].id)
+        }
         if !projects.contains(where: \.isInbox) {
             projects.insert(Self.makeInbox(), at: 0)
         }

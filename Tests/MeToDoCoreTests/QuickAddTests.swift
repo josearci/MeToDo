@@ -62,6 +62,17 @@ import Foundation
         #expect(Calendar.current.component(.hour, from: try #require(r.remindAt)) == 15)
     }
 
+    @Test func bareHourAfterAtIsATime() throws {
+        let r = try #require(QuickAdd.parse("Call Ana tomorrow at 3", projects: all))
+        #expect(r.title == "Call Ana")
+        #expect(Calendar.current.component(.hour, from: try #require(r.remindAt)) != 9)
+    }
+
+    @Test func timeOnlyInThePastRollsToTomorrow() throws {
+        let r = try #require(QuickAdd.parse("Call mom at 12:01am", projects: all))
+        #expect(try #require(r.remindAt) > Date())
+    }
+
     @Test func relativeTimeKeepsDetectedTime() throws {
         let r = try #require(QuickAdd.parse("Stretch in 2 hours", projects: all))
         #expect(r.title == "Stretch")

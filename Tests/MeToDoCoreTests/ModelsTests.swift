@@ -29,6 +29,21 @@ import Foundation
         #expect(d.tasks[0].projectID == d.inbox.id)
     }
 
+    @Test func repairGivesDuplicateIDsFreshOnes() {
+        let work = Project(name: "Work", color: .green)
+        var copy = work
+        copy.name = "Work copy"
+        var d = AppData.fresh()
+        d.projects += [work, copy, AppData.fresh().projects[0]]
+        let t = TaskItem(projectID: work.id, title: "t")
+        d.tasks = [t, t]
+        d.repair()
+        #expect(Set(d.projects.map(\.id)).count == d.projects.count)
+        #expect(d.projects.filter(\.isInbox).count == 1)
+        #expect(Set(d.tasks.map(\.id)).count == 2)
+        #expect(d.tasks.allSatisfy { $0.projectID == work.id })
+    }
+
     @Test func subtaskProgressCountsDone() {
         let t = TaskItem(projectID: UUID(), title: "Sprint",
                          subtasks: [Subtask(title: "a", isDone: true), Subtask(title: "b")])

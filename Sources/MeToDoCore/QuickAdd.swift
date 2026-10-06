@@ -19,7 +19,12 @@ public enum QuickAdd {
         var remindAt: Date?
         if let found = detectRelative(in: text, calendar: calendar) ?? detectDate(in: text) {
             let (date, r) = found
-            remindAt = hasTime(String(text[r])) ? date : calendar.date(bySettingHour: 9, minute: 0, second: 0, of: date)
+            let phrase = String(text[r])
+            remindAt = hasTime(phrase) ? date : calendar.date(bySettingHour: 9, minute: 0, second: 0, of: date)
+            // "Call mom 5pm" typed at 6 PM means tomorrow, not "already overdue".
+            if let d = remindAt, d < Date(), phrase.range(of: timeOnly, options: .regularExpression) != nil {
+                remindAt = calendar.date(byAdding: .day, value: 1, to: d)
+            }
             text = dropTrailingPreposition(String(text[..<r.lowerBound])) + " " + text[r.upperBound...]
         }
         let title = text.split(whereSeparator: \.isWhitespace).joined(separator: " ")
@@ -46,7 +51,10 @@ public enum QuickAdd {
     /// Whole English words only, so Spanish "octubre 14" stays part of the title.
     static let dateWords = #"(?i)\b(today|tonight|tomorrow|yesterday|next|this|mon(day)?|tue(s|sday)?|wed(nesday)?|thu(rs?|rsday)?|fri(day)?|sat(urday)?|sun(day)?|jan(uary)?|feb(ruary)?|mar(ch)?|apr(il)?|may|june?|july?|aug(ust)?|sep(t|tember)?|oct(ober)?|nov(ember)?|dec(ember)?|noon|midnight|morning|afternoon|evening)\b|\d\s*(am|pm|a\.m\.|p\.m\.)|\d:\d\d"#
 
-    static let timeWords = #"(?i)\d\s*(am|pm|a\.m\.|p\.m\.)|\d:\d\d|noon|midnight|morning|afternoon|evening|tonight|\bin\s+\d+\s*(m|h)"#
+    static let timeWords = #"(?i)\d\s*(am|pm|a\.m\.|p\.m\.)|\d:\d\d|noon|midnight|morning|afternoon|evening|tonight|\bin\s+\d+\s*(m|h)|\bat\s+\d{1,2}\b"#
+
+    /// A phrase that is only a time of day ("5pm", "at 12:01am", "noon"), with no day in it.
+    static let timeOnly = #"(?i)^\s*(at\s+)?(\d{1,2}(:\d\d)?\s*(am|pm|a\.m\.|p\.m\.)?|noon|midnight)\s*$"#
 
     static let relative = try! NSRegularExpression(pattern: #"(?i)\bin\s+(\d+)\s*(minutes?|mins?|m|hours?|hrs?|h|days?|d|weeks?|w)\b"#)
 
