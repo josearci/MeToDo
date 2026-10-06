@@ -3,9 +3,11 @@ import AppKit
 // make-icon SOURCE OUT.png — crop the dark rounded-square icon out of a light mockup and
 // lay it on a 1024² transparent canvas the way macOS icons are drawn (824² body + shadow).
 let args = CommandLine.arguments
-let src = NSImage(contentsOfFile: args[1])!
+func fail(_ message: String) -> Never { FileHandle.standardError.write(Data((message + "\n").utf8)); exit(1) }
+guard args.count == 3 else { fail("usage: make-icon SOURCE OUT.png") }
+guard let src = NSImage(contentsOfFile: args[1]) else { fail("Can't open \(args[1]) as an image") }
 var rect = CGRect(origin: .zero, size: src.size)
-let cg = src.cgImage(forProposedRect: &rect, context: nil, hints: nil)!
+guard let cg = src.cgImage(forProposedRect: &rect, context: nil, hints: nil) else { fail("Can't read pixels from \(args[1])") }
 let w = cg.width, h = cg.height
 
 // Bitmap access
@@ -26,6 +28,7 @@ for y in 0..<h where dark(midX, y) { minY = min(minY, y); maxY = max(maxY, y) }
 // Corner radius: along the top edge, how far in from the left the first dark pixel sits.
 var radiusScan = 0
 for x in minX..<maxX where dark(x, minY + 1) { radiusScan = x - minX; break }
+guard maxX - minX > 64, maxY - minY > 64 else { fail("No dark rounded-square icon found in \(args[1]) (expects a dark icon on a light background)") }
 print("body x \(minX)...\(maxX) y \(minY)...\(maxY), top-edge inset \(radiusScan)")
 
 let side = min(maxX - minX, maxY - minY)
