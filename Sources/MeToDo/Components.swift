@@ -92,3 +92,41 @@ extension View {
             .listRowSeparator(.hidden)
     }
 }
+
+/// Pick a project: where a new task goes (Add field) or where an existing task moves (task row).
+struct ProjectMenu<MenuLabel: View>: View {
+    @Environment(Store.self) private var store
+    let selected: UUID?
+    let onPick: (Project) -> Void
+    @ViewBuilder let label: () -> MenuLabel
+
+    var body: some View {
+        Menu {
+            ForEach(store.data.projects) { p in
+                Button((p.id == selected ? "✓ " : "") + p.displayName) { onPick(p) }
+            }
+        } label: {
+            label()
+        }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
+        .fixedSize()
+    }
+}
+
+/// The colored project chip used as the Add field's project picker.
+struct ProjectChip: View {
+    let project: Project
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Text(project.displayName)
+            Image(systemName: "chevron.down").font(.system(size: 8, weight: .semibold))
+        }
+        .font(.caption)
+        .foregroundStyle(project.color.color)
+        .padding(.horizontal, 7).padding(.vertical, 3)
+        .background(project.color.color.opacity(0.14), in: Capsule())
+    }
+}

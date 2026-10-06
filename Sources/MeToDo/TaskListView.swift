@@ -6,10 +6,6 @@ struct TaskListView: View {
     @Environment(UIState.self) private var ui
     @State private var showDone = false
 
-    private var projectID: UUID? {
-        if case .project(let id) = ui.sidebar { id } else { nil }
-    }
-
     var body: some View {
         @Bindable var ui = ui
         let data = store.data
@@ -39,7 +35,7 @@ struct TaskListView: View {
             .onKeyPress(.rightArrow) { act { ui.expanded.insert($0) } }
             .onKeyPress(.leftArrow) { act { ui.expanded.remove($0) } }
 
-            AddField(defaultProjectID: projectID, inToday: ui.sidebar == .today)
+            AddField(placement: .window)
                 .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 16)
         }
         .navigationTitle(title)

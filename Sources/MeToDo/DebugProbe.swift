@@ -1,5 +1,6 @@
 #if DEBUG
 import AppKit
+import SwiftUI
 import MeToDoCore
 
 /// Debug builds only: lets an outside test script see the app without screen-recording permission.
@@ -11,7 +12,10 @@ enum DebugProbe {
         ProcessInfo.processInfo.environment["METODO_DATA"].map { URL(fileURLWithPath: $0) }
     }
 
-    static func install(store: Store, ui: UIState) {
+    static func install(store: Store, ui: UIState, reminders: ReminderScheduler) {
+        self.reminders = reminders
+        probeStore = store
+        probeUI = ui
         DistributedNotificationCenter.default().addObserver(
             forName: Notification.Name("com.josearci.metodo.probe"), object: nil, queue: .main
         ) { note in
@@ -28,9 +32,34 @@ enum DebugProbe {
     /// click/rclick/dblclick: "window" index + "x","y" in screenshot coordinates (top-left origin).
     /// key: "chars" + optional "keyCode" and "mods" ("cmd,shift").
     private static var lastHit = ""
+    private static var axDump: [String] = []
+    private static var reminders: ReminderScheduler?
+    private static var probeStore: Store?
+    private static var probeUI: UIState?
+    private static var popoverWindow: NSWindow?
     private static var lastMenu: NSMenu?
 
     private static func perform(_ action: String, _ info: [AnyHashable: Any]) {
+        if action == "popover" {
+            // The real MenuBarExtra window can't open while the app can't activate; host the same view.
+            guard let store = probeStore, let ui = probeUI, let reminders else { return }
+            let host = NSHostingView(rootView: PopoverView().environment(store).environment(ui).environment(reminders))
+            let win = NSWindow(contentRect: NSRect(x: 200, y: 200, width: 340, height: 440), styleMask: [.titled], backing: .buffered, defer: false)
+            win.title = "Popover preview"
+            win.contentView = host
+            win.orderFront(nil)
+            popoverWindow = win
+            lastHit = "popover preview opened"
+            return
+        }
+        if action == "status" {
+            // Click the menu bar icon to toggle the popover.
+            let button = NSApp.windows.filter { "\(type(of: $0))" == "NSStatusBarWindow" && $0.isVisible }
+                .compactMap { allSubviews($0.contentView).first { $0 is NSStatusBarButton } as? NSStatusBarButton }.first
+            button?.performClick(nil)
+            lastHit = button == nil ? "no status button" : "status clicked"
+            return
+        }
         let idx = Int(info["window"] as? String ?? "1") ?? 1
         guard NSApp.windows.indices.contains(idx) else { return }
         let w = NSApp.windows[idx]
@@ -47,13 +76,13 @@ enum DebugProbe {
         }
         switch action {
         case "click", "dblclick":
-            // Straight to the view under the point: the window's first-mouse filter would drop
-            // clicks while the app can't activate (e.g. the screen is locked).
-            let target = w.contentView?.superview?.hitTest(p)
-            lastHit = target.map { "\(type(of: $0))" } ?? "nil"
+            // Through the window (so SwiftUI gesture recognizers see it). The app can't activate while
+            // the screen is locked, so every view is made to accept the first click on an inactive window.
+            acceptFirstMouseEverywhere(w)
+            lastHit = w.contentView?.superview?.hitTest(p).map { "\(type(of: $0))" } ?? "nil"
             for n in action == "click" ? [1] : [1, 2] {
                 NSApp.postEvent(mouse(.leftMouseUp, n), atStart: false)   // dequeued by the mouseDown tracking loop
-                target?.mouseDown(with: mouse(.leftMouseDown, n))
+                w.sendEvent(mouse(.leftMouseDown, n))
             }
         case "rclick":
             let target = w.contentView?.superview?.hitTest(p)
@@ -69,6 +98,59 @@ enum DebugProbe {
             guard tables.indices.contains(t) else { lastHit = "no table \(t)"; break }
             tables[t].selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
             lastHit = "selected row \(row) of table \(t)"
+        case "type":
+            // Focus the text field under the point, insert "text", optionally press Return.
+            var v = w.contentView?.superview?.hitTest(p)
+            while let view = v, !(view is NSTextField) { v = view.superview }
+            guard let field = v as? NSTextField else { lastHit = "no text field"; break }
+            w.makeFirstResponder(field)
+            let editor = field.currentEditor() as? NSTextView
+            editor?.insertText(info["text"] as? String ?? "", replacementRange: editor?.selectedRange() ?? NSRange())
+            if info["submit"] as? String == "1" { editor?.insertNewline(nil) }
+            lastHit = "typed into \(type(of: field))"
+        case "popup":
+            // SwiftUI Menu buttons are pop-up buttons: list their items, or fire "item".
+            var v = w.contentView?.superview?.hitTest(p)
+            while let view = v, !(view is NSPopUpButton) { v = view.superview }
+            guard let button = v as? NSPopUpButton, let menu = button.menu else { lastHit = "no popup at point (\(v.map { "\(type(of: $0))" } ?? "nil"))"; break }
+            menu.update()
+            lastMenu = menu
+            if let title = info["item"] as? String, let i = menu.items.firstIndex(where: { $0.title.contains(title) }) {
+                menu.performActionForItem(at: i)
+            }
+            lastHit = "popup \(button.title)"
+        case "axdump":
+            // List accessible elements (role, label) so tests know what can be pressed.
+            var out: [String] = []
+            func walk(_ e: Any, _ depth: Int) {
+                guard depth < 40, let el = e as? NSAccessibilityElementProtocol & NSObject else { return }
+                let role = (el as? NSAccessibilityProtocol)?.accessibilityRole()?.rawValue ?? "?"
+                let label = (el as? NSAccessibilityProtocol)?.accessibilityLabel() ?? ""
+                let title = (el as? NSAccessibilityProtocol)?.accessibilityTitle() ?? ""
+                let value = ((el as? NSAccessibilityProtocol)?.accessibilityValue()).map { "\($0)" } ?? ""
+                if !(label.isEmpty && title.isEmpty && value.isEmpty) || role.contains("Button") {
+                    out.append(String(repeating: " ", count: depth) + "\(role) l=\(label) t=\(title) v=\(value.prefix(40))")
+                }
+                for c in (el as? NSAccessibilityProtocol)?.accessibilityChildren() ?? [] { walk(c, depth + 1) }
+            }
+            for v in allSubviews(w.contentView) where "\(type(of: v))".contains("Hosting") { walk(v, 0) }
+            axDump = out
+        case "press":
+            // Press the Nth (default 0) accessible element whose label/title contains "label".
+            let needle = info["label"] as? String ?? ""
+            let nth = Int(info["nth"] as? String ?? "0") ?? 0
+            var found: [NSAccessibilityProtocol] = []
+            func walk(_ e: Any, _ depth: Int) {
+                guard depth < 40, let el = e as? NSAccessibilityProtocol else { return }
+                let text = (el.accessibilityLabel() ?? "") + "|" + (el.accessibilityTitle() ?? "")
+                if text.contains(needle), el.accessibilityRole() == .button || el.accessibilityRole() == .popUpButton || el.accessibilityRole() == .menuButton || el.accessibilityRole() == .checkBox { found.append(el) }
+                for c in el.accessibilityChildren() ?? [] { walk(c, depth + 1) }
+            }
+            for v in allSubviews(w.contentView) where "\(type(of: v))".contains("Hosting") { walk(v, 0) }
+            if found.indices.contains(nth) {
+                let ok = found[nth].accessibilityPerformPress()
+                lastHit = "pressed \(needle)#\(nth) of \(found.count) ok=\(ok)"
+            } else { lastHit = "no button '\(needle)' (\(found.count) found)" }
         case "menu":
             // "path" like "Move to/🏠 Home": walk the last context menu and fire the item.
             var menu = lastMenu
@@ -92,6 +174,22 @@ enum DebugProbe {
             }
         default: break
         }
+    }
+
+    private static var patched = Set<ObjectIdentifier>()
+
+    private static func acceptFirstMouseEverywhere(_ w: NSWindow) {
+        let yes: @convention(block) (AnyObject, NSEvent?) -> Bool = { _, _ in true }
+        for v in allSubviews(w.contentView?.superview) {
+            let cls: AnyClass = type(of: v)
+            guard patched.insert(ObjectIdentifier(cls)).inserted else { continue }
+            class_replaceMethod(cls, #selector(NSView.acceptsFirstMouse(for:)), imp_implementationWithBlock(yes), "c@:@")
+        }
+    }
+
+    private static func allSubviews(_ view: NSView?) -> [NSView] {
+        guard let view else { return [] }
+        return [view] + view.subviews.flatMap { allSubviews($0) }
     }
 
     private static func allTables(in view: NSView?) -> [NSTableView] {
@@ -128,6 +226,7 @@ enum DebugProbe {
         let state: [String: Any] = [
             "sidebar": sidebar,
             "lastHit": lastHit,
+            "ax": axDump,
             "tables": NSApp.windows.compactMap { $0.isVisible ? $0 : nil }.flatMap { allTables(in: $0.contentView) }.map {
                 "\(type(of: $0)) rows=\($0.numberOfRows) selected=\($0.selectedRow) x=\(Int($0.convert($0.bounds, to: nil).minX))"
             },

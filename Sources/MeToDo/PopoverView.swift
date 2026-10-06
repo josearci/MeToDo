@@ -26,7 +26,7 @@ struct PopoverView: View {
             .padding([.horizontal, .top], 12)
             .padding(.bottom, 8)
 
-            AddField(defaultProjectID: nil, inToday: !ui.popoverShowsAll, autofocus: true)
+            AddField(placement: .popover, autofocus: true)
                 .padding(.horizontal, 12)
 
             ScrollView {

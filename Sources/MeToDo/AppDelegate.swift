@@ -28,7 +28,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         #if DEBUG
-        DebugProbe.install(store: store, ui: ui)
+        DebugProbe.install(store: store, ui: ui, reminders: reminders)
         #endif
         if !UserDefaults.standard.bool(forKey: "didFirstLaunch") {
             UserDefaults.standard.set(true, forKey: "didFirstLaunch")

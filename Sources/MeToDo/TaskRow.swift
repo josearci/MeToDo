@@ -114,6 +114,11 @@ struct TaskRow: View {
             .foregroundStyle(task.inToday ? AnyShapeStyle(.yellow) : AnyShapeStyle(.secondary))
             .help(task.inToday ? "Remove from Today (⌘T)" : "Add to Today (⌘T)")
             if hovering {
+                ProjectMenu(selected: task.projectID, onPick: { store.move(task.id, toProject: $0.id) }) {
+                    Image(systemName: "folder")
+                }
+                .foregroundStyle(.secondary)
+                .help("Move to project")
                 Button { showReminder = true } label: {
                     Image(systemName: task.remindAt == nil ? "bell" : "bell.fill")
                 }
