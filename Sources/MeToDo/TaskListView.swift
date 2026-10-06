@@ -18,7 +18,8 @@ struct TaskListView: View {
                         AllClear(hasUpNext: !upNext.isEmpty).listRowSeparator(.hidden)
                         groups(upNext, movable: false, alwaysShowSun: true)
                     } else {
-                        ForEach(today) { TaskRow(task: $0, showProjectTag: true).listRowSeparator(.hidden) }
+                        // Same layout as All, just today's tasks (Today order kept inside each project).
+                        groups(today, movable: false)
                     }
                 case .all:
                     let open = Queries.open(data)

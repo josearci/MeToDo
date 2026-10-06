@@ -6,6 +6,8 @@ struct PopoverView: View {
     @Environment(Store.self) private var store
     @Environment(UIState.self) private var ui
     @Environment(\.openWindow) private var openWindow
+    /// The menu bar window hosting this view, so it can close itself.
+    @State private var hostWindow: NSWindow?
     @Environment(ReminderScheduler.self) private var reminders
 
     var body: some View {
@@ -51,6 +53,7 @@ struct PopoverView: View {
             footer
         }
         .frame(width: 340, height: 440)
+        .background(WindowReader { hostWindow = $0 })
         .task { await reminders.refreshAuthorization() }
         .background {
             // ⌘1 / ⌘2 switch tabs (spec §5).
@@ -68,21 +71,16 @@ struct PopoverView: View {
             if groups.isEmpty {
                 Text("No tasks yet").foregroundStyle(.secondary).frame(maxWidth: .infinity).padding(.top, 30)
             }
-            ForEach(groups) { g in
-                GroupHeader(project: g.project).padding(.top, 4)
-                ForEach(g.tasks) { TaskRow(task: $0, compact: true) }
-            }
+            groupList(groups)
         } else {
             let today = Queries.today(data, now: ui.now)
             if today.isEmpty {
                 let upNext = Queries.grouped(Queries.upNext(data, now: ui.now), projects: data.projects)
                 AllClear(hasUpNext: !upNext.isEmpty)
-                ForEach(upNext) { g in
-                    GroupHeader(project: g.project).padding(.top, 4)
-                    ForEach(g.tasks) { TaskRow(task: $0, alwaysShowSun: true, compact: true) }
-                }
+                groupList(upNext, alwaysShowSun: true)
             } else {
-                ForEach(today) { TaskRow(task: $0, showProjectTag: true, compact: true) }
+                // Same layout as All, just today's tasks (Today order kept inside each project).
+                groupList(Queries.grouped(today, projects: data.projects))
             }
         }
         let done = ui.popoverShowsAll ? Queries.done(data) : Queries.doneToday(data, now: ui.now)
@@ -116,7 +114,16 @@ struct PopoverView: View {
         .padding(.vertical, 8)
     }
 
+    private func groupList(_ groups: [TaskGroup], alwaysShowSun: Bool = false) -> some View {
+        ForEach(groups) { g in
+            GroupHeader(project: g.project).padding(.top, 4)
+            ForEach(g.tasks) { TaskRow(task: $0, alwaysShowSun: alwaysShowSun, compact: true) }
+        }
+    }
+
+    /// Going to the full window closes this popover; no point keeping both open.
     private func openMain() {
+        hostWindow?.close()
         openWindow(id: "main")
         NSApp.activate()
     }

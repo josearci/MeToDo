@@ -170,3 +170,16 @@ struct TimeChip: View {
             .background((date == nil ? Color.secondary : .orange).opacity(0.14), in: Capsule())
     }
 }
+
+/// Hands back the NSWindow hosting a SwiftUI view.
+struct WindowReader: NSViewRepresentable {
+    let onWindow: (NSWindow?) -> Void
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async { onWindow(view.window) }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {}
+}
