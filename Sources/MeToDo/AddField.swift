@@ -71,6 +71,8 @@ struct AddField: View {
         if partialTag != nil, let first = suggestions.first { complete(with: first); return }
         guard store.quickAdd(text, defaultProjectID: defaultProjectID, inToday: inToday) != nil else { return }
         text = ""
+        // Old typing history would otherwise capture the next ⌘Z meant for a task change.
+        (NSApp.keyWindow?.firstResponder as? NSTextView)?.undoManager?.removeAllActions()
         focused = true
     }
 }

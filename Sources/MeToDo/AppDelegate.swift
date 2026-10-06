@@ -50,5 +50,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func tick() {
         ui.now = Date()
         reminders.resync()
+        Task { await reminders.refreshAuthorization() }
     }
 }

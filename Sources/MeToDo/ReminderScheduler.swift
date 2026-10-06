@@ -49,7 +49,14 @@ final class ReminderScheduler: NSObject, UNUserNotificationCenterDelegate {
     }
 
     func refreshAuthorization() async {
-        remindersOff = await center.notificationSettings().authorizationStatus == .denied
+        let off = await center.notificationSettings().authorizationStatus == .denied
+        // Requests added while denied were dropped by macOS; rebuild them once permission is back.
+        if remindersOff && !off {
+            center.removeAllPendingNotificationRequests()
+            scheduled = [:]
+            resync()
+        }
+        remindersOff = off
     }
 
     /// Cheap to call often: only changed requests are touched. Called on every store change and every minute.

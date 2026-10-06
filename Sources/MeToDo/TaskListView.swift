@@ -117,7 +117,8 @@ struct TaskListView: View {
     }
 
     private func act(_ f: (UUID) -> Void) -> KeyPress.Result {
-        guard let id = ui.selectedTaskID else { return .ignored }
+        // Keys typed into a title or subtask field belong to that field, not the list.
+        guard let id = ui.selectedTaskID, !(NSApp.keyWindow?.firstResponder is NSTextView) else { return .ignored }
         f(id)
         return .handled
     }
