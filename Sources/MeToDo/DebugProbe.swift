@@ -71,6 +71,15 @@ enum DebugProbe {
             lastHit = "\(action) \(task.title)"
             return
         }
+        if action == "colorPanel" {
+            // Pick a color in the open system color panel, like a user would.
+            let hex = UInt32((info["hex"] as? String ?? "FF2D55"), radix: 16) ?? 0
+            let panel = NSColorPanel.shared
+            panel.color = .hex(hex)
+            ColorPanelBridge.active?.colorChanged(panel)   // as a user pick does
+            lastHit = "color panel visible=\(NSColorPanel.shared.isVisible)"
+            return
+        }
         if action == "status" {
             // Click the menu bar icon to toggle the popover.
             let button = NSApp.windows.filter { "\(type(of: $0))" == "NSStatusBarWindow" && $0.isVisible }
@@ -216,7 +225,8 @@ enum DebugProbe {
 
     private static func describe(_ m: NSMenu) -> [String] {
         m.items.flatMap { item -> [String] in
-            let me = item.isSeparatorItem ? "---" : item.title + (item.isEnabled ? "" : " (disabled)")
+            let image = item.image.map { $0.isTemplate ? " [template img]" : " [color img]" } ?? ""
+            let me = item.isSeparatorItem ? "---" : item.title + image + (item.state == .on ? " ✓" : "") + (item.isEnabled ? "" : " (disabled)")
             return [me] + (item.submenu.map { describe($0).map { "  " + $0 } } ?? [])
         }
     }

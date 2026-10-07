@@ -10,13 +10,25 @@ public struct Project: Codable, Identifiable, Hashable, Sendable {
     public var color: ProjectColor
     public var emoji: String?
     public var isInbox: Bool
+    /// A user-picked "#RRGGBB" that overrides the palette `color` when set.
+    public var customColor: String?
 
-    public init(id: UUID = UUID(), name: String, color: ProjectColor, emoji: String? = nil, isInbox: Bool = false) {
+    public init(id: UUID = UUID(), name: String, color: ProjectColor, emoji: String? = nil, isInbox: Bool = false,
+                customColor: String? = nil) {
         self.id = id
         self.name = name
         self.color = color
         self.emoji = emoji
         self.isInbox = isInbox
+        self.customColor = customColor
+    }
+
+    /// "#4cc38a" / "4CC38A" → "#4CC38A"; anything that isn't 6 hex digits → nil.
+    public static func normalizedHex(_ s: String) -> String? {
+        var hex = s.trimmingCharacters(in: .whitespaces).uppercased()
+        if hex.hasPrefix("#") { hex.removeFirst() }
+        guard hex.count == 6, hex.allSatisfy(\.isHexDigit) else { return nil }
+        return "#" + hex
     }
 
     /// "📥 Inbox", or just the name when there's no emoji.
@@ -102,6 +114,7 @@ public struct CompletedTask: Codable, Equatable, Identifiable, Sendable {
     public var projectName: String
     public var projectEmoji: String?
     public var projectColor: ProjectColor
+    public var projectCustomColor: String?
     public var createdAt: Date?
     public var completedAt: Date
     /// The reminder time the task had when it was completed.
@@ -122,6 +135,7 @@ public struct CompletedTask: Codable, Equatable, Identifiable, Sendable {
         projectName = project?.name ?? "Deleted project"
         projectEmoji = project?.emoji
         projectColor = project?.color ?? .gray
+        projectCustomColor = project?.customColor
         createdAt = task.createdAt
         let completed = task.completedAt ?? clearedAt
         completedAt = completed

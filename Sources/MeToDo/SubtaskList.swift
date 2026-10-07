@@ -5,7 +5,7 @@ import MeToDoCore
 struct SubtaskList: View {
     @Environment(Store.self) private var store
     let task: TaskItem
-    let color: ProjectColor
+    let color: ProjectTint
     @State private var newTitle = ""
     @FocusState private var addFocused: Bool
 
@@ -33,7 +33,7 @@ private struct SubtaskRow: View {
     @Environment(Store.self) private var store
     let taskID: UUID
     let subtask: Subtask
-    let color: ProjectColor
+    let color: ProjectTint
     @State private var editing = false
     @State private var draft = ""
     @FocusState private var fieldFocused: Bool

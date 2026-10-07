@@ -53,7 +53,7 @@ struct GroupHeader: View {
     var body: some View {
         Text(project.displayName)
             .font(.system(size: 11.5, weight: .semibold))
-            .foregroundStyle(project.color.color)
+            .foregroundStyle(project.tint.color)
             .padding(.top, 6)
     }
 }
@@ -92,9 +92,9 @@ struct WarningBanner: View {
 extension View {
     /// The project's 2pt color rail on the leading edge, continuous across rows.
     /// `bar: false` keeps the same indent without the bar (group headers).
-    func rail(_ color: ProjectColor, bar: Bool = true) -> some View {
+    func rail(_ tint: ProjectTint, bar: Bool = true) -> some View {
         padding(.leading, 10)
-            .overlay(alignment: .leading) { if bar { Rectangle().fill(color.color).frame(width: 2) } }
+            .overlay(alignment: .leading) { if bar { Rectangle().fill(tint.color).frame(width: 2) } }
             .listRowInsets(EdgeInsets(top: 0, leading: 12, bottom: 0, trailing: 12))
             .listRowSeparator(.hidden)
     }
@@ -110,7 +110,10 @@ struct ProjectMenu<MenuLabel: View>: View {
     var body: some View {
         Menu {
             ForEach(store.data.projects) { p in
-                Button((p.id == selected ? "✓ " : "") + p.displayName) { onPick(p) }
+                // Toggle gives the native checkmark; the dot shows the project's color.
+                Toggle(isOn: Binding(get: { p.id == selected }, set: { _ in onPick(p) })) {
+                    ProjectMenuLabel(project: p)
+                }
             }
         } label: {
             label()
@@ -132,9 +135,9 @@ struct ProjectChip: View {
             Image(systemName: "chevron.down").font(.system(size: 8, weight: .semibold))
         }
         .font(.caption)
-        .foregroundStyle(project.color.color)
+        .foregroundStyle(project.tint.color)
         .padding(.horizontal, 7).padding(.vertical, 3)
-        .background(project.color.color.opacity(0.14), in: Capsule())
+        .background(project.tint.color.opacity(0.14), in: Capsule())
     }
 }
 
@@ -214,5 +217,25 @@ struct NotesEditor: View {
             }
             .onChange(of: text) { _, new in store.setNotes(task.id, new) }
             .onChange(of: task.notes) { _, new in if new != text { text = new } }
+    }
+}
+
+/// A menu item label: the project's color as a dot, then its emoji and name.
+struct ProjectMenuLabel: View {
+    let project: Project
+
+    var body: some View {
+        Label { Text(project.displayName) } icon: { Image(nsImage: Self.dot(NSColor(project.tint.color))) }
+    }
+
+    /// Menus re-tint template images, so the dot is a non-template image drawn in the color.
+    static func dot(_ color: NSColor) -> NSImage {
+        let image = NSImage(size: NSSize(width: 12, height: 12), flipped: false) { rect in
+            color.setFill()
+            NSBezierPath(ovalIn: rect.insetBy(dx: 1.5, dy: 1.5)).fill()
+            return true
+        }
+        image.isTemplate = false
+        return image
     }
 }

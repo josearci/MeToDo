@@ -24,9 +24,9 @@ struct AddField: View {
                         Button(p.displayName) { complete(with: p) }
                             .buttonStyle(.plain)
                             .font(.caption)
-                            .foregroundStyle(p.color.color)
+                            .foregroundStyle(p.tint.color)
                             .padding(.horizontal, 6).padding(.vertical, 2)
-                            .background(p.color.color.opacity(0.12), in: Capsule())
+                            .background(p.tint.color.opacity(0.12), in: Capsule())
                     }
                 }
             }

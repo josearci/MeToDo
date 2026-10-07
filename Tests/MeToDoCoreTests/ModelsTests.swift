@@ -56,3 +56,17 @@ import Foundation
         #expect(Project(name: "Work", color: .green, emoji: "").displayName == "Work")
     }
 }
+
+@Suite struct CustomColorTests {
+    @Test(arguments: [("#4cc38a", "#4CC38A"), ("4CC38A", "#4CC38A"), ("  #abcdef ", "#ABCDEF"), ("#12345", nil), ("zzzzzz", nil), ("", nil)])
+    func hexIsNormalized(_ input: String, _ expected: String?) {
+        #expect(Project.normalizedHex(input) == expected)
+    }
+
+    @Test func oldProjectsWithoutCustomColorStillDecode() throws {
+        let json = #"{"id":"6B1E1D3C-1111-4F00-9A00-000000000009","name":"Work","color":"green","isInbox":false}"#
+        let p = try JSONDecoder().decode(Project.self, from: Data(json.utf8))
+        #expect(p.customColor == nil)
+        #expect(p.color == .green)
+    }
+}

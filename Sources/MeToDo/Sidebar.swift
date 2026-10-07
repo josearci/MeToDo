@@ -29,7 +29,7 @@ struct Sidebar: View {
             Section {
                 ForEach(data.projects) { p in
                     row(p.displayName, count: Queries.openCount(data, project: p.id)) {
-                        Circle().fill(p.color.color).frame(width: 8, height: 8)
+                        Circle().fill(p.tint.color).frame(width: 8, height: 8)
                     } big: {
                         BigProjectIcon(project: p)
                     }
@@ -110,7 +110,7 @@ private struct BigProjectIcon: View {
             Text(emoji).font(.system(size: 22))
         } else {
             Circle()
-                .fill(project.color.color)
+                .fill(project.tint.color)
                 .frame(width: 24, height: 24)
                 .overlay {
                     Text(project.name.prefix(1).uppercased())

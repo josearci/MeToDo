@@ -181,10 +181,11 @@ public final class Store {
     // MARK: Projects
 
     @discardableResult
-    public func addProject(name: String, color: ProjectColor, emoji: String?) -> Project? {
+    public func addProject(name: String, color: ProjectColor, emoji: String?, customColor: String? = nil) -> Project? {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { return nil }
-        let p = Project(name: name, color: color, emoji: Self.cleanEmoji(emoji))
+        let p = Project(name: name, color: color, emoji: Self.cleanEmoji(emoji),
+                        customColor: customColor.flatMap(Project.normalizedHex))
         mutate("Add Project") { $0.projects.append(p) }
         return p
     }
@@ -198,6 +199,7 @@ public final class Store {
             d.projects[i].name = name
             d.projects[i].color = updated.color
             d.projects[i].emoji = Self.cleanEmoji(updated.emoji)
+            d.projects[i].customColor = updated.customColor.flatMap(Project.normalizedHex)
         }
     }
 

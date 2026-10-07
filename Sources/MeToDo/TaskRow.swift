@@ -21,7 +21,7 @@ struct TaskRow: View {
     @FocusState private var titleFocused: Bool
 
     private var project: Project? { store.project(task.projectID) }
-    private var color: ProjectColor { project?.color ?? .gray }
+    private var color: ProjectTint { project?.tint ?? ProjectColor.gray.tint }
     private var isExpanded: Bool { ui.expanded.contains(task.id) }
 
     var body: some View {
@@ -152,7 +152,7 @@ struct TaskRow: View {
         Button("Set Reminder…") { showReminder = true }
         Menu("Move to") {
             ForEach(store.data.projects) { p in
-                Button(p.displayName) { store.move(task.id, toProject: p.id) }
+                Button { store.move(task.id, toProject: p.id) } label: { ProjectMenuLabel(project: p) }
                     .disabled(p.id == task.projectID)
             }
         }

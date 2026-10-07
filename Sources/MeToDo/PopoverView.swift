@@ -116,8 +116,8 @@ struct PopoverView: View {
 
     private func groupList(_ groups: [TaskGroup], alwaysShowSun: Bool = false) -> some View {
         ForEach(groups) { g in
-            GroupHeader(project: g.project).rail(g.project.color, bar: false).padding(.top, 4)
-            ForEach(g.tasks) { TaskRow(task: $0, alwaysShowSun: alwaysShowSun, compact: true).rail(g.project.color) }
+            GroupHeader(project: g.project).rail(g.project.tint, bar: false).padding(.top, 4)
+            ForEach(g.tasks) { TaskRow(task: $0, alwaysShowSun: alwaysShowSun, compact: true).rail(g.project.tint) }
         }
     }
 

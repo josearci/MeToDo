@@ -159,6 +159,22 @@ import Foundation
         #expect(store.data.inbox.id == inbox.id)
     }
 
+    @Test func projectsKeepACustomColor() throws {
+        let store = makeStore()
+        var p = try #require(store.addProject(name: "Sports", color: .orange, emoji: "🏈", customColor: "#ff2d55"))
+        #expect(p.customColor == "#FF2D55")
+        p.customColor = "nonsense"
+        store.updateProject(p)
+        #expect(store.project(p.id)?.customColor == nil)
+        p.customColor = "#00C7BE"
+        store.updateProject(p)
+        #expect(store.project(p.id)?.customColor == "#00C7BE")
+        let t = try #require(store.addTask("Game", projectID: p.id))
+        store.toggleDone(t.id)
+        store.clearDone([t.id])
+        #expect(store.data.archive.first?.projectCustomColor == "#00C7BE")
+    }
+
     @Test func clearDoneRemovesOnlyDoneTasks() throws {
         let store = makeStore()
         let a = try #require(store.addTask("a"))

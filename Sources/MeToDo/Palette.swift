@@ -43,3 +43,29 @@ extension NSColor {
 extension NSAppearance {
     var isDark: Bool { bestMatch(from: [.darkAqua, .aqua]) == .darkAqua }
 }
+
+/// What a view needs to color something by project: the full color and the softened title color.
+struct ProjectTint {
+    let color: Color
+    let titleColor: Color
+}
+
+extension ProjectColor {
+    var tint: ProjectTint { ProjectTint(color: color, titleColor: titleColor) }
+}
+
+extension Project {
+    /// The custom color when the project has one, otherwise its palette color.
+    var tint: ProjectTint {
+        guard let hex = customColor, let value = UInt32(hex.dropFirst(), radix: 16) else { return color.tint }
+        let base = NSColor.hex(value)
+        return ProjectTint(
+            color: Color(nsColor: base),
+            titleColor: Color(nsColor: NSColor(name: nil) { appearance in
+                appearance.isDark
+                    ? base.blended(withFraction: 0.42, of: .hex(0xF2F2F4))!
+                    : base.blended(withFraction: 0.28, of: .hex(0x1D1D1F))!
+            })
+        )
+    }
+}

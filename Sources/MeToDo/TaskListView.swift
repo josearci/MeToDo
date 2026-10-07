@@ -52,10 +52,10 @@ struct TaskListView: View {
         ForEach(Queries.grouped(tasks, projects: store.data.projects)) { g in
             Section {
                 // The header is a row (not a Section header) so it lines up with the tasks; the bar is on tasks only..
-                GroupHeader(project: g.project).rail(g.project.color, bar: false).selectionDisabled()
+                GroupHeader(project: g.project).rail(g.project.tint, bar: false).selectionDisabled()
                 ForEach(g.tasks) { t in
                     TaskRow(task: t, alwaysShowSun: alwaysShowSun)
-                        .rail(g.project.color)
+                        .rail(g.project.tint)
                         .itemProvider { NSItemProvider(object: t.id.uuidString as NSString) }
                 }
                 .onMove(perform: movable ? { (from: IndexSet, to: Int) in
