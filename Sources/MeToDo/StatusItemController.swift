@@ -12,15 +12,17 @@ final class StatusItemController: NSObject, NSWindowDelegate {
     private let store: Store
     private let ui: UIState
     private let reminders: ReminderScheduler
+    private let updater: Updater
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     private var panel: NSPanel?
     private var hotKey: HotKey?
     private(set) var hotKeyRegistered = false
 
-    init(store: Store, ui: UIState, reminders: ReminderScheduler) {
+    init(store: Store, ui: UIState, reminders: ReminderScheduler, updater: Updater) {
         self.store = store
         self.ui = ui
         self.reminders = reminders
+        self.updater = updater
         super.init()
         statusItem.button?.target = self
         statusItem.button?.action = #selector(toggle)
@@ -81,7 +83,8 @@ final class StatusItemController: NSObject, NSWindowDelegate {
         let host = NSHostingView(rootView: PopoverView()
             .environment(store)
             .environment(ui)
-            .environment(reminders))
+            .environment(reminders)
+            .environment(updater))
         host.frame = background.bounds
         host.autoresizingMask = [.width, .height]
         background.addSubview(host)

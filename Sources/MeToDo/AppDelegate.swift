@@ -6,6 +6,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let store: Store
     let ui: UIState
     let reminders: ReminderScheduler
+    let updater = Updater()
     /// One app-wide undo stack so ⌘Z works the same from the window and the popover.
     let undoManager = UndoManager()
     private var timer: Timer?
@@ -31,7 +32,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #if DEBUG
         DebugProbe.install(store: store, ui: ui, reminders: reminders)
         #endif
-        let status = StatusItemController(store: store, ui: ui, reminders: reminders)
+        let status = StatusItemController(store: store, ui: ui, reminders: reminders, updater: updater)
         statusItem = status
         ui.openMainWindow = { [weak self] in self?.openMainWindow() }
         if !UserDefaults.standard.bool(forKey: "didFirstLaunch") {
@@ -51,6 +52,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.statusItem?.refreshIcon()
         }
         Task { await reminders.start() }
+        updater.start()
         timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }
         }

@@ -44,7 +44,7 @@ enum DebugProbe {
         if action == "popover" {
             // The real MenuBarExtra window can't open while the app can't activate; host the same view.
             guard let store = probeStore, let ui = probeUI, let reminders else { return }
-            let host = NSHostingView(rootView: PopoverView().environment(store).environment(ui).environment(reminders))
+            let host = NSHostingView(rootView: PopoverView().environment(store).environment(ui).environment(reminders).environment(Updater()))
             let win = NSWindow(contentRect: NSRect(x: 200, y: 200, width: 340, height: 440), styleMask: [.titled], backing: .buffered, defer: false)
             win.title = "Popover preview"
             win.contentView = host
@@ -195,6 +195,16 @@ enum DebugProbe {
             let split = allSubviews(w.contentView).compactMap { $0 as? NSSplitView }.first
             split?.setPosition(CGFloat(Double(info["w"] as? String ?? "200") ?? 200), ofDividerAt: 0)
             lastHit = split == nil ? "no split view" : "sidebar width set"
+        case "size":
+            let width = Double(info["w"] as? String ?? "960") ?? 960, height = Double(info["h"] as? String ?? "620") ?? 620
+            // Optional "screen" index puts the window on that screen (e.g. a Retina one for 2x snapshots).
+            var origin = NSPoint(x: w.frame.minX, y: w.frame.maxY - height)
+            if let i = Int(info["screen"] as? String ?? ""), NSScreen.screens.indices.contains(i) {
+                let f = NSScreen.screens[i].visibleFrame
+                origin = NSPoint(x: f.midX - width / 2, y: f.midY - height / 2)
+            }
+            w.setFrame(NSRect(origin: origin, size: NSSize(width: width, height: height)), display: true)
+            lastHit = "resized"
         case "menu":
             // "path" like "Move to/🏠 Home": walk the last context menu and fire the item.
             var menu = lastMenu
@@ -247,9 +257,14 @@ enum DebugProbe {
             let f = w.frame
             windows.append(["index": i, "title": w.title, "class": "\(type(of: w))", "id": w.identifier?.rawValue ?? "",
                             "frame": [f.origin.x, f.origin.y, f.width, f.height], "key": w.isKeyWindow])
-            guard let view = w.contentView?.superview ?? w.contentView,
-                  let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { continue }
-            view.cacheDisplay(in: view.bounds, to: rep)
+            guard let view = w.contentView?.superview ?? w.contentView else { continue }
+            // Always render at 2x so README screenshots stay sharp on 1x displays too.
+            let b = view.bounds
+            guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(b.width * 2), pixelsHigh: Int(b.height * 2),
+                                             bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                                             colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0) else { continue }
+            rep.size = b.size
+            view.cacheDisplay(in: b, to: rep)
             try? rep.representation(using: .png, properties: [:])?.write(to: dir.appendingPathComponent("window-\(i).png"))
         }
         let sidebar: String = switch ui.sidebar {
@@ -268,7 +283,7 @@ enum DebugProbe {
             "selectedTask": ui.selectedTaskID.flatMap { store.task($0)?.title } ?? NSNull(),
             "popoverShowsAll": ui.popoverShowsAll,
             "activationPolicy": NSApp.activationPolicy().rawValue,
-            "screenFrames": NSScreen.screens.map { [$0.frame.origin.x, $0.frame.origin.y, $0.frame.width, $0.frame.height] },
+            "screenFrames": NSScreen.screens.map { [$0.frame.origin.x, $0.frame.origin.y, $0.frame.width, $0.frame.height, $0.backingScaleFactor] },
             "windows": windows,
             "projects": store.data.projects.map(\.displayName),
             "tasks": store.data.tasks.map { ["title": $0.title, "project": store.project($0.projectID)?.name ?? "?",

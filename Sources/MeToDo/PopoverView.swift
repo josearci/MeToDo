@@ -5,6 +5,7 @@ import MeToDoCore
 struct PopoverView: View {
     @Environment(Store.self) private var store
     @Environment(UIState.self) private var ui
+    @Environment(Updater.self) private var updater
     @Environment(ReminderScheduler.self) private var reminders
 
     var body: some View {
@@ -43,6 +44,15 @@ struct PopoverView: View {
                 }
                 .buttonStyle(.borderless)
                 .foregroundStyle(.orange)
+                .padding(.horizontal, 12).padding(.vertical, 6)
+            }
+            if case .ready(let version) = updater.state {
+                Button { updater.installAndRelaunch(saving: store) } label: {
+                    Label("MeToDo \(version) is ready · Restart to update", systemImage: "arrow.down.circle.fill")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(Color.accentColor)
                 .padding(.horizontal, 12).padding(.vertical, 6)
             }
             if let error = store.saveError { WarningBanner(text: error) }
@@ -86,6 +96,24 @@ struct PopoverView: View {
         }
     }
 
+    @ViewBuilder private var updateMenuItem: some View {
+        switch updater.state {
+        case .ready(let version):
+            Button("Restart to Update to \(version)") { updater.installAndRelaunch(saving: store) }
+        case .downloading(let version):
+            Text("Downloading \(version)…")
+        case .checking:
+            Text("Checking for updates…")
+        case .upToDate:
+            Button("Up to Date · Check Again") { Task { await updater.check() } }
+        case .failed(let message):
+            Text(message)
+            Button("Try Again") { Task { await updater.check() } }
+        case .idle:
+            Button("Check for Updates") { Task { await updater.check() } }
+        }
+    }
+
     private var footer: some View {
         HStack {
             Button("Open MeToDo", action: openMain)
@@ -94,6 +122,9 @@ struct PopoverView: View {
             Spacer()
             Menu {
                 Text("Show or hide from anywhere: \(StatusItemController.hotKeyDescription)")
+                Divider()
+                Text("MeToDo \(updater.currentVersion)")
+                if updater.canUpdate { updateMenuItem }
                 Divider()
                 Toggle("Launch at Login", isOn: Binding(get: { LoginItem.isOn }, set: { LoginItem.set($0) }))
                 Button("Open MeToDo", action: openMain)

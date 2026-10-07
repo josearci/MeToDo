@@ -1,23 +1,36 @@
 #!/bin/bash
-# Builds MeToDo.app, signs it for this Mac, and (re)installs it in /Applications. Data is untouched.
+# Installs the latest MeToDo release into /Applications. After this, MeToDo updates itself.
+#
+#   curl -fsSL https://raw.githubusercontent.com/josearci/MeToDo/main/install.sh | bash
+#
+# (Building from source instead? See scripts/dev-install.sh.)
 set -euo pipefail
-cd "$(dirname "$0")"
 
-swift build -c release
-BIN="$(swift build -c release --show-bin-path)/MeToDo"
-APP=".build/MeToDo.app"
+REPO="josearci/MeToDo"
+URL="https://github.com/$REPO/releases/latest/download/MeToDo.zip"
 
-rm -rf "$APP"
-mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$BIN" "$APP/Contents/MacOS/MeToDo"
-cp Resources/Info.plist "$APP/Contents/Info.plist"
-cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
-codesign --force --sign - "$APP"
+if [ "$(uname)" != "Darwin" ]; then echo "MeToDo is a macOS app." >&2; exit 1; fi
+MAJOR=$(sw_vers -productVersion | cut -d. -f1)
+if [ "$MAJOR" -lt 15 ]; then echo "MeToDo needs macOS 15 or later (this Mac has $(sw_vers -productVersion))." >&2; exit 1; fi
 
-# ponytail: SIGTERM skips applicationWillTerminate; only changes from the last 0.5s (save debounce) could be lost.
-pkill -x MeToDo || true
-sleep 1
+TMP=$(mktemp -d)
+trap 'rm -rf "$TMP"' EXIT
+
+echo "Downloading the latest MeToDo…"
+curl -fsSL "$URL" -o "$TMP/MeToDo.zip"
+ditto -x -k "$TMP/MeToDo.zip" "$TMP"
+APP="$TMP/MeToDo.app"
+if [ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Contents/Info.plist" 2>/dev/null)" != "com.josearci.metodo" ]; then
+  echo "The download doesn't look like MeToDo; nothing was installed." >&2
+  exit 1
+fi
+VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")
+
+pkill -x MeToDo 2>/dev/null && sleep 1 || true
 rm -rf /Applications/MeToDo.app
-cp -R "$APP" /Applications/
+ditto "$APP" /Applications/MeToDo.app
+xattr -dr com.apple.quarantine /Applications/MeToDo.app 2>/dev/null || true
 open /Applications/MeToDo.app
-echo "Installed /Applications/MeToDo.app"
+
+echo "MeToDo $VERSION is installed and running in your menu bar (✓ icon, or press ⌃⌥M)."
+echo "It keeps itself up to date."
