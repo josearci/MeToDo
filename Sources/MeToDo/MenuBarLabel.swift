@@ -2,23 +2,6 @@ import SwiftUI
 import AppKit
 import MeToDoCore
 
-/// The menu bar icon. It's alive for the whole session, so it also opens the main
-/// window on request (first launch, notification clicks, ⌘N).
-struct MenuBarLabel: View {
-    @Environment(Store.self) private var store
-    @Environment(UIState.self) private var ui
-    @Environment(\.openWindow) private var openWindow
-
-    var body: some View {
-        Image(nsImage: MenuBarIcon.image(overdue: Queries.anyOverdue(store.data, now: ui.now)))
-            .onChange(of: ui.openMainWindowToken, initial: true) { _, token in
-                guard token > 0 else { return }
-                openWindow(id: "main")
-                NSApp.activate()
-            }
-    }
-}
-
 enum MenuBarIcon {
     /// Template checkmark normally; with a red dot while anything is overdue (spec §5).
     static func image(overdue: Bool) -> NSImage {

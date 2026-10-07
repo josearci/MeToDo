@@ -10,7 +10,7 @@ struct AppCommands: Commands {
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
             Button("New Task") {
-                ui.openMainWindowToken += 1
+                ui.openMainWindow()
                 ui.focusAddFieldToken += 1
             }
             .keyboardShortcut("n")

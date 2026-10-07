@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// One app-wide undo stack so ⌘Z works the same from the window and the popover.
     let undoManager = UndoManager()
     private var timer: Timer?
+    private var statusItem: StatusItemController?
 
     override init() {
         #if DEBUG
@@ -30,10 +31,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #if DEBUG
         DebugProbe.install(store: store, ui: ui, reminders: reminders)
         #endif
+        let status = StatusItemController(store: store, ui: ui, reminders: reminders)
+        statusItem = status
+        ui.openMainWindow = { [weak self] in self?.openMainWindow() }
         if !UserDefaults.standard.bool(forKey: "didFirstLaunch") {
             UserDefaults.standard.set(true, forKey: "didFirstLaunch")
             LoginItem.set(true)
-            ui.openMainWindowToken += 1
+            ui.openMainWindow()
         }
         if let issue = store.loadIssue {
             NSApp.activate()
@@ -42,12 +46,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             alert.informativeText = issue
             alert.runModal()
         }
-        store.onChange = { [weak self] in self?.reminders.resync() }
+        store.onChange = { [weak self] in
+            self?.reminders.resync()
+            self?.statusItem?.refreshIcon()
+        }
         Task { await reminders.start() }
         timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }
         }
     }
+
+    /// Closes the menu bar popover and shows the main window.
+    func openMainWindow() {
+        statusItem?.close()
+        NSApp.activate()
+        if let window = NSApp.windows.first(where: { $0.identifier?.rawValue == "main" }), window.isVisible {
+            window.makeKeyAndOrderFront(nil)
+        } else if let open = ui.openWindowAction {
+            open(id: "main")
+        } else {
+            ui.pendingOpenMain = true   // OpenWindowRelay opens it as soon as it appears
+        }
+    }
+
+    /// A menu bar app keeps running with no windows open.
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
     func applicationWillTerminate(_ notification: Notification) {
         store.saveNow()
@@ -57,6 +80,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func tick() {
         ui.now = Date()
         reminders.resync()
+        statusItem?.refreshIcon()
         Task { await reminders.refreshAuthorization() }
     }
 }

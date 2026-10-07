@@ -14,17 +14,6 @@ struct MeToDoApp: App {
         .defaultSize(width: 880, height: 600)
         .defaultLaunchBehavior(.suppressed)
         .commands { AppCommands(store: appDelegate.store, ui: appDelegate.ui, undoManager: appDelegate.undoManager) }
-
-        MenuBarExtra {
-            PopoverView()
-                .environment(appDelegate.store)
-                .environment(appDelegate.ui)
-                .environment(appDelegate.reminders)
-        } label: {
-            MenuBarLabel()
-                .environment(appDelegate.store)
-                .environment(appDelegate.ui)
-        }
-        .menuBarExtraStyle(.window)
+        // The menu bar icon + popover live in StatusItemController (AppKit) so a hotkey can open them.
     }
 }

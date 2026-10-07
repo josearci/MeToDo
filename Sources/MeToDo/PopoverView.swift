@@ -5,9 +5,6 @@ import MeToDoCore
 struct PopoverView: View {
     @Environment(Store.self) private var store
     @Environment(UIState.self) private var ui
-    @Environment(\.openWindow) private var openWindow
-    /// The menu bar window hosting this view, so it can close itself.
-    @State private var hostWindow: NSWindow?
     @Environment(ReminderScheduler.self) private var reminders
 
     var body: some View {
@@ -53,7 +50,6 @@ struct PopoverView: View {
             footer
         }
         .frame(width: 340, height: 440)
-        .background(WindowReader { hostWindow = $0 })
         .task { await reminders.refreshAuthorization() }
         .background {
             // ⌘1 / ⌘2 switch tabs (spec §5).
@@ -97,6 +93,8 @@ struct PopoverView: View {
                 .keyboardShortcut("o")
             Spacer()
             Menu {
+                Text("Show or hide from anywhere: \(StatusItemController.hotKeyDescription)")
+                Divider()
                 Toggle("Launch at Login", isOn: Binding(get: { LoginItem.isOn }, set: { LoginItem.set($0) }))
                 Button("Open MeToDo", action: openMain)
                 Divider()
@@ -123,8 +121,6 @@ struct PopoverView: View {
 
     /// Going to the full window closes this popover; no point keeping both open.
     private func openMain() {
-        hostWindow?.close()
-        openWindow(id: "main")
-        NSApp.activate()
+        ui.openMainWindow()   // also closes this popover
     }
 }

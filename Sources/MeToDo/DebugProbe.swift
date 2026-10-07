@@ -80,6 +80,13 @@ enum DebugProbe {
             lastHit = "color panel visible=\(NSColorPanel.shared.isVisible)"
             return
         }
+        if action == "statusInfo" || action == "statusSend" {
+            let button = NSApp.windows.filter { "\(type(of: $0))" == "NSStatusBarWindow" && $0.isVisible }
+                .compactMap { allSubviews($0.contentView).first { $0 is NSStatusBarButton } as? NSStatusBarButton }.first
+            if action == "statusSend", let b = button, let a = b.action { NSApp.sendAction(a, to: b.target, from: b) }
+            lastHit = "button=\(button != nil) action=\(button?.action.map(NSStringFromSelector) ?? "nil") target=\(button?.target.map { "\(type(of: $0))" } ?? "nil") menu=\(button?.menu != nil)"
+            return
+        }
         if action == "status" {
             // Click the menu bar icon to toggle the popover.
             let button = NSApp.windows.filter { "\(type(of: $0))" == "NSStatusBarWindow" && $0.isVisible }
@@ -238,7 +245,7 @@ enum DebugProbe {
         var windows: [[String: Any]] = []
         for (i, w) in NSApp.windows.enumerated() where w.isVisible {
             let f = w.frame
-            windows.append(["index": i, "title": w.title, "class": "\(type(of: w))",
+            windows.append(["index": i, "title": w.title, "class": "\(type(of: w))", "id": w.identifier?.rawValue ?? "",
                             "frame": [f.origin.x, f.origin.y, f.width, f.height], "key": w.isKeyWindow])
             guard let view = w.contentView?.superview ?? w.contentView,
                   let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { continue }

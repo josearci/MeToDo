@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import Observation
 
 enum SidebarItem: Hashable {
@@ -18,8 +19,12 @@ final class UIState {
     var popoverShowsAll = false
     /// Ticks every minute so overdue states and Today roll over on their own.
     var now = Date()
-    /// Bumped to ask the always-alive menu bar label to open the main window.
-    var openMainWindowToken = 0
+    /// Opens (or focuses) the main window; set by AppDelegate.
+    @ObservationIgnored var openMainWindow: () -> Void = {}
+    /// SwiftUI's open-window action, handed over by a tiny view living in the menu bar icon.
+    @ObservationIgnored var openWindowAction: OpenWindowAction?
+    /// The main window was requested before that action arrived (first launch).
+    @ObservationIgnored var pendingOpenMain = false
     /// Bumped to focus the main window's Add field (⌘N).
     var focusAddFieldToken = 0
 
@@ -27,7 +32,7 @@ final class UIState {
     func showTask(_ id: UUID) {
         sidebar = .all
         selectedTaskID = id
-        openMainWindowToken += 1
+        openMainWindow()
     }
 
     func toggleExpanded(_ id: UUID) {
