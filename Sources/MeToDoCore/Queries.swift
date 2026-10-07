@@ -1,0 +1,159 @@
+import Foundation
+
+public struct TaskGroup: Identifiable, Sendable {
+    public let project: Project
+    public let tasks: [TaskItem]
+    public var id: UUID { project.id }
+}
+
+public struct PlannedReminder: Equatable, Sendable {
+    public let taskID: UUID
+    public let date: Date
+    public let title: String
+    public let subtitle: String
+
+    public init(taskID: UUID, date: Date, title: String, subtitle: String) {
+        self.taskID = taskID
+        self.date = date
+        self.title = title
+        self.subtitle = subtitle
+    }
+}
+
+/// Pure read-only views over AppData. Everything takes `now`/`calendar` so it's testable.
+public enum Queries {
+    // MARK: Status
+
+    public static func isOverdue(_ t: TaskItem, now: Date) -> Bool {
+        guard !t.isDone, let r = t.remindAt else { return false }
+        return r <= now
+    }
+
+    /// Open and either pulled in by hand or with a reminder today or earlier (spec §2).
+    public static func isInToday(_ t: TaskItem, now: Date, calendar: Calendar = .current) -> Bool {
+        guard !t.isDone else { return false }
+        if t.inToday { return true }
+        guard let r = t.remindAt else { return false }
+        return r < at(hour: 0, daysFromNow: 1, now: now, calendar: calendar)
+    }
+
+    public static func anyOverdue(_ data: AppData, now: Date) -> Bool {
+        data.tasks.contains { isOverdue($0, now: now) }
+    }
+
+    // MARK: Lists
+
+    public static func open(_ data: AppData, project: UUID? = nil) -> [TaskItem] {
+        ordered(data.tasks.filter { !$0.isDone && (project == nil || $0.projectID == project) }, projects: data.projects)
+    }
+
+    public static func done(_ data: AppData, project: UUID? = nil) -> [TaskItem] {
+        data.tasks
+            .filter { $0.isDone && (project == nil || $0.projectID == project) }
+            .sorted { ($0.completedAt ?? .distantPast) > ($1.completedAt ?? .distantPast) }
+    }
+
+    /// Tasks completed today, most recent first (the Today view's Done section).
+    public static func doneToday(_ data: AppData, now: Date, calendar: Calendar = .current) -> [TaskItem] {
+        done(data).filter { $0.completedAt.map { calendar.isDate($0, inSameDayAs: now) } ?? false }
+    }
+
+    public static func openCount(_ data: AppData, project: UUID) -> Int {
+        data.tasks.count(where: { !$0.isDone && $0.projectID == project })
+    }
+
+    /// Spec §6: overdue (oldest first), then later today (by time), then the rest in project order.
+    public static func today(_ data: AppData, now: Date, calendar: Calendar = .current) -> [TaskItem] {
+        let endOfToday = at(hour: 0, daysFromNow: 1, now: now, calendar: calendar)
+        func bucket(_ t: TaskItem) -> Int {
+            guard let r = t.remindAt, r < endOfToday else { return 2 }
+            return r <= now ? 0 : 1
+        }
+        let todays = ordered(data.tasks.filter { isInToday($0, now: now, calendar: calendar) }, projects: data.projects)
+        return todays.enumerated().sorted { a, b in
+            let (ba, bb) = (bucket(a.element), bucket(b.element))
+            if ba != bb { return ba < bb }
+            if ba < 2, let ra = a.element.remindAt, let rb = b.element.remindAt, ra != rb { return ra < rb }
+            return a.offset < b.offset
+        }.map(\.element)
+    }
+
+    /// Open tasks not in Today, offered when Today is empty.
+    public static func upNext(_ data: AppData, now: Date, calendar: Calendar = .current) -> [TaskItem] {
+        ordered(data.tasks.filter { !$0.isDone && !isInToday($0, now: now, calendar: calendar) }, projects: data.projects)
+    }
+
+    /// Sidebar project order first, then the order inside data.tasks.
+    public static func ordered(_ tasks: [TaskItem], projects: [Project]) -> [TaskItem] {
+        let rank = Dictionary(projects.enumerated().map { ($1.id, $0) }, uniquingKeysWith: { first, _ in first })
+        return tasks.enumerated().sorted { a, b in
+            let ra = rank[a.element.projectID] ?? .max
+            let rb = rank[b.element.projectID] ?? .max
+            return ra != rb ? ra < rb : a.offset < b.offset
+        }.map(\.element)
+    }
+
+    /// One group per project that has tasks, in project order; task order is kept.
+    public static func grouped(_ tasks: [TaskItem], projects: [Project]) -> [TaskGroup] {
+        let byProject = Dictionary(grouping: tasks, by: \.projectID)
+        var seen = Set<UUID>()
+        return projects.compactMap { p in
+            guard seen.insert(p.id).inserted, let ts = byProject[p.id] else { return nil }
+            return TaskGroup(project: p, tasks: ts)
+        }
+    }
+
+    // MARK: Dates
+
+    public static func at(hour: Int, daysFromNow days: Int, now: Date, calendar: Calendar = .current) -> Date {
+        let day = calendar.date(byAdding: .day, value: days, to: calendar.startOfDay(for: now))!
+        return calendar.date(bySettingHour: hour, minute: 0, second: 0, of: day)!
+    }
+
+    /// "Today 3:00 PM", "Tomorrow 9:00 AM", "Yesterday 5:00 PM", "Oct 14, 9:00 AM", "Jan 2, 2027, 9:00 AM".
+    public static func reminderLabel(_ date: Date, now: Date, calendar: Calendar = .current, locale: Locale = .current) -> String {
+        // ponytail: builds formatters per call; cache them if long lists ever feel slow.
+        func format(_ template: String) -> String {
+            let f = DateFormatter()
+            f.locale = locale
+            f.calendar = calendar
+            f.timeZone = calendar.timeZone
+            f.setLocalizedDateFormatFromTemplate(template)
+            return f.string(from: date).replacingOccurrences(of: "\u{202F}", with: " ")
+        }
+        let time = format("jmm")
+        let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: now), to: calendar.startOfDay(for: date)).day ?? 0
+        switch days {
+        case 0: return "Today \(time)"
+        case 1: return "Tomorrow \(time)"
+        case -1: return "Yesterday \(time)"
+        default:
+            let sameYear = calendar.component(.year, from: date) == calendar.component(.year, from: now)
+            return "\(format(sameYear ? "MMMd" : "yMMMd")), \(time)"
+        }
+    }
+
+    // MARK: Reminders
+
+    /// What should be pending with macOS right now: open tasks with a future reminder, soonest first.
+    /// Capped because macOS only keeps a limited number of pending requests per app; the rest get
+    /// scheduled as earlier ones pass (the app re-plans every minute).
+    public static func reminderPlan(_ data: AppData, now: Date, limit: Int = 64) -> [PlannedReminder] {
+        let names = Dictionary(data.projects.map { ($0.id, $0.displayName) }, uniquingKeysWith: { first, _ in first })
+        let plan = data.tasks.compactMap { t -> PlannedReminder? in
+            guard !t.isDone, let r = t.remindAt, r > now else { return nil }
+            return PlannedReminder(taskID: t.id, date: r, title: t.title, subtitle: names[t.projectID] ?? "")
+        }
+        return Array(plan.sorted { $0.date < $1.date }.prefix(limit))
+    }
+
+    /// Minimal changes to move from what's pending to the plan. Adding with an existing identifier
+    /// replaces it. A reminder whose time already passed is never removed: it may be firing right now.
+    public static func reminderDiff(scheduled: [UUID: PlannedReminder], plan: [PlannedReminder], now: Date)
+        -> (remove: [UUID], add: [PlannedReminder]) {
+        let planned = Set(plan.map(\.taskID))
+        let remove = scheduled.filter { !planned.contains($0.key) && $0.value.date > now }.map(\.key)
+        let add = plan.filter { scheduled[$0.taskID] != $0 }
+        return (remove.sorted { $0.uuidString < $1.uuidString }, add)
+    }
+}
