@@ -15,7 +15,11 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  smoke:
+    uses: ./.github/workflows/smoke.yml
+
   release:
+    needs: smoke
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4

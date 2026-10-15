@@ -1,0 +1,26 @@
+# Builds MeToDo.app and launches it on every supported macOS (scripts/smoke-test.sh).
+# Runs on branches and pull requests; release.yml runs it before publishing a release.
+name: Smoke test
+
+on:
+  push:
+    branches-ignore: [main]   # main runs it through release.yml
+  pull_request:
+  workflow_call:
+  workflow_dispatch:
+
+jobs:
+  launch:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-15-intel, macos-26]   # oldest supported (Apple Silicon + Intel) and the next release
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Build
+        run: ./scripts/build-app.sh
+      - name: Launch the app
+        run: ./scripts/smoke-test.sh .build/MeToDo.app
