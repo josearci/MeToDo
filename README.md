@@ -20,6 +20,7 @@ curl -fsSL https://raw.githubusercontent.com/josearci/MeToDo/main/install.sh | b
 
 It downloads the latest release, puts **MeToDo.app** in your Applications folder and starts it. A ✓ appears in your menu bar.
 
+- **Don't see the ✓?** macOS hides menu bar icons that don't fit (e.g. behind the notch) or that are turned off in System Settings › Menu Bar. Opening MeToDo from Applications or Spotlight always shows its window, and ⌃⌥M works either way.
 - **Requirements:** macOS 15 or later. Works on Apple Silicon and Intel Macs.
 - **Updates:** MeToDo keeps itself up to date. Every change merged into `main` becomes a new release. The app checks for one at launch and every few hours, downloads it in the background, and shows **“Restart to update”** in the menu bar popover.
 

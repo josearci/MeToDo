@@ -38,6 +38,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if !UserDefaults.standard.bool(forKey: "didFirstLaunch") {
             UserDefaults.standard.set(true, forKey: "didFirstLaunch")
             LoginItem.set(true)
+        }
+        // Opened by hand (installer, Finder, Spotlight) → show the window; the menu bar icon may be
+        // hidden by the notch or System Settings › Menu Bar. Started at login → stay in the menu bar.
+        if !LoginItem.launchedAtLogin {
             ui.openMainWindow()
         }
         if let issue = store.loadIssue {
@@ -69,6 +73,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             ui.pendingOpenMain = true   // OpenWindowRelay opens it as soon as it appears
         }
+    }
+
+    /// Opening MeToDo while it's already running (Finder, Spotlight, Launchpad) shows the window;
+    /// with no Dock icon, nothing else would happen.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        openMainWindow()
+        return false
     }
 
     /// A menu bar app keeps running with no windows open.

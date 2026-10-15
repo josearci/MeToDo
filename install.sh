@@ -1,5 +1,5 @@
 #!/bin/bash
-# Installs the latest MeToDo release into /Applications. After this, MeToDo updates itself.
+# Installs the latest MeToDo release into /Applications (~/Applications without admin rights). After this, MeToDo updates itself.
 #
 #   curl -fsSL https://raw.githubusercontent.com/josearci/MeToDo/main/install.sh | bash
 #
@@ -26,11 +26,16 @@ if [ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Contents/In
 fi
 VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")
 
-pkill -x MeToDo 2>/dev/null && sleep 1 || true
-rm -rf /Applications/MeToDo.app
-ditto "$APP" /Applications/MeToDo.app
-xattr -dr com.apple.quarantine /Applications/MeToDo.app 2>/dev/null || true
-open /Applications/MeToDo.app
+# Accounts without admin rights can't write /Applications; ~/Applications works the same.
+DEST=/Applications
+[ -w "$DEST" ] || { DEST="$HOME/Applications"; mkdir -p "$DEST"; }
 
-echo "MeToDo $VERSION is installed and running in your menu bar (✓ icon, or press ⌃⌥M)."
+pkill -x MeToDo 2>/dev/null && sleep 1 || true
+rm -rf "$DEST/MeToDo.app"
+ditto "$APP" "$DEST/MeToDo.app"
+xattr -dr com.apple.quarantine "$DEST/MeToDo.app" 2>/dev/null || true
+open "$DEST/MeToDo.app"
+
+echo "MeToDo $VERSION is installed in $DEST and running in your menu bar (✓ icon, or press ⌃⌥M)."
+echo "Don't see the icon? It may be hidden by the notch or under System Settings › Menu Bar; opening MeToDo again always shows its window."
 echo "It keeps itself up to date."
