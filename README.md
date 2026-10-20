@@ -18,7 +18,7 @@ Paste this into Terminal:
 curl -fsSL https://raw.githubusercontent.com/josearci/MeToDo/main/install.sh | bash
 ```
 
-It downloads the latest release, puts **MeToDo.app** in your Applications folder and starts it. A ✓ appears in your menu bar.
+It downloads the latest release, puts **MeToDo.app** in your Applications folder (or `~/Applications` if your account isn't an admin) and starts it. A ✓ appears in your menu bar.
 
 - **Don't see the ✓?** macOS hides menu bar icons that don't fit (e.g. behind the notch) or that are turned off in System Settings › Menu Bar. Opening MeToDo from Applications or Spotlight always shows its window, and ⌃⌥M works either way.
 - **Requirements:** macOS 15 or later. Works on Apple Silicon and Intel Macs.
@@ -28,10 +28,11 @@ It downloads the latest release, puts **MeToDo.app** in your Applications folder
 
 **Projects with colors and emoji.** Group tasks into projects, each with an emoji and one of eight preset colors, or any custom color. Task titles and the color bar beside them take the project's color, so you can tell projects apart at a glance.
 
-**Today and All.**
+**Today, All and Completed.**
 - **All** shows everything, grouped by project.
 - **Today** shows tasks due today, tasks that are overdue, and anything you pull in with ☀️.
 - When Today is empty, you see **Up next**, so there's always something to pick.
+- **Completed** lists everything you've finished, newest first, including tasks you've cleared.
 
 **Notes and subtasks.** Click a task to expand it. You'll see its notes and its subtasks, with a progress ring such as ◔ 1/3.
 
@@ -64,7 +65,13 @@ It downloads the latest release, puts **MeToDo.app** in your Applications folder
 
 You can also choose the project and time with the chips at the end of the Add field.
 
-**Done stays visible.** Finished tasks stay crossed out at the bottom until you press **Clear done**. Cleared tasks are kept in a history in your data file, ready for stats later: when each was created, completed and due, and how often it was snoozed. **Completed** in the sidebar lists everything you've finished, cleared or not; untick one or click **Reopen** to bring it back.
+**Done stays visible.** Finished tasks stay crossed out at the bottom until you press **Clear done**. Cleared tasks are kept in a history in your data file, ready for stats later: when each was created, completed and due, and how often it was snoozed.
+
+**Reopen anything.** Changed your mind? Open **Completed**, then untick a task or click **Reopen**, and it's back in your lists. Cleared tasks come back with their notes, in their project (or the Inbox if that project was deleted).
+
+<p align="center">
+  <img src="docs/images/completed.png" width="820" alt="Completed view listing finished tasks with their project and completion time">
+</p>
 
 <p align="center">
   <img src="docs/images/project-editor.png" width="380" alt="Project editor with emoji tile, name and color swatches">
