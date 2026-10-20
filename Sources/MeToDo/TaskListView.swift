@@ -29,6 +29,17 @@ struct TaskListView: View {
                     let open = Queries.open(data, project: id)
                     if open.isEmpty { emptyState }
                     groups(open, movable: true)
+                case .completed:
+                    let completed = Queries.completed(data)
+                    if completed.isEmpty {
+                        Text("Nothing completed yet")
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 40)
+                            .listRowSeparator(.hidden)
+                            .selectionDisabled()
+                    }
+                    ForEach(completed) { CompletedRow(record: $0).listRowSeparator(.hidden).selectionDisabled() }
                 }
                 doneSection(doneTasks(data))
             }
@@ -43,7 +54,7 @@ struct TaskListView: View {
                 .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 16)
         }
         .navigationTitle(title)
-        .navigationSubtitle("\(openCount) open")
+        .navigationSubtitle(ui.sidebar == .completed ? "\(Queries.completed(data).count) done" : "\(openCount) open")
     }
 
     /// Projects in order, each with its header and color rail. Drag to reorder inside a project;
@@ -93,6 +104,8 @@ struct TaskListView: View {
             Queries.done(data)
         case .project(let id):
             Queries.done(data, project: id)
+        case .completed:
+            []
         }
     }
 
@@ -101,6 +114,7 @@ struct TaskListView: View {
         case .today: "Today"
         case .all: "All"
         case .project(let id): store.project(id)?.displayName ?? "Project"
+        case .completed: "Completed"
         }
     }
 
@@ -109,6 +123,7 @@ struct TaskListView: View {
         case .today: Queries.today(store.data, now: ui.now).count
         case .all: Queries.open(store.data).count
         case .project(let id): Queries.openCount(store.data, project: id)
+        case .completed: 0
         }
     }
 
@@ -117,5 +132,47 @@ struct TaskListView: View {
         guard let id = ui.selectedTaskID, !(NSApp.keyWindow?.firstResponder is NSTextView) else { return .ignored }
         f(id)
         return .handled
+    }
+}
+
+/// A finished task in the Completed view, listed or already cleared. Unticking or Reopen puts it back.
+private struct CompletedRow: View {
+    @Environment(Store.self) private var store
+    @Environment(UIState.self) private var ui
+    let record: CompletedTask
+    @State private var hovering = false
+
+    /// The live project when it still exists, otherwise the one snapshotted at clear time.
+    private var project: Project {
+        store.project(record.projectID) ?? Project(id: record.projectID, name: record.projectName, color: record.projectColor,
+                                                   emoji: record.projectEmoji, customColor: record.projectCustomColor)
+    }
+
+    var body: some View {
+        let tint = project.tint
+        HStack(alignment: .top, spacing: 10) {
+            CheckBox(isOn: true, color: tint.color) { store.reopen(record.id) }
+                .padding(.top, 1)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(record.title).strikethrough().foregroundStyle(.secondary)
+                HStack(spacing: 10) {
+                    Text(project.displayName).foregroundStyle(tint.color)
+                    Label(Queries.reminderLabel(record.completedAt, now: ui.now), systemImage: "checkmark")
+                }
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            if hovering {
+                Button("Reopen") { store.reopen(record.id) }
+                    .buttonStyle(.borderless)
+                    .help("Move back to the open tasks")
+            }
+        }
+        .font(.system(size: 13))
+        .padding(.vertical, 5)
+        .contentShape(Rectangle())
+        .onHover { hovering = $0 }
+        .contextMenu { Button("Reopen") { store.reopen(record.id) } }
     }
 }
