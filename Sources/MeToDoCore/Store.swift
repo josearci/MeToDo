@@ -140,6 +140,22 @@ public final class Store {
         }
     }
 
+    /// Puts a finished task back in the lists: unticks it, or brings it back from the archive.
+    /// Archived tasks come back without subtasks or reminder (the archive only kept counts and the old due time).
+    public func reopen(_ id: UUID) {
+        if let t = task(id) {
+            if t.isDone { toggleDone(id) }
+            return
+        }
+        mutate("Reopen Task") { d in
+            guard let i = d.archive.lastIndex(where: { $0.id == id }) else { return }
+            let c = d.archive.remove(at: i)
+            d.tasks.append(TaskItem(id: c.id, projectID: c.projectID, title: c.title, createdAt: c.createdAt,
+                                    snoozeCount: c.snoozeCount, notes: c.notes ?? ""))
+            d.repair()   // its project may be gone: re-homes it to the Inbox
+        }
+    }
+
     /// Reorders the tasks of one list (`displayedIDs`, in display order) like SwiftUI's onMove,
     /// writing them back into the same slots of `data.tasks` so other projects' tasks stay put.
     public func moveTasks(_ displayedIDs: [UUID], fromOffsets: IndexSet, toOffset: Int) {

@@ -386,4 +386,28 @@ import Foundation
         #expect(d.tasks.first?.notes == "")
         #expect(d.archive.isEmpty)
     }
+
+    @Test func reopenBringsBackListedAndClearedTasks() throws {
+        let fixed = now
+        let store = makeStore(at: { fixed })
+        let p = try #require(store.addProject(name: "Gone", color: .red, emoji: nil))
+        let listed = try #require(store.addTask("Listed"))
+        let cleared = try #require(store.addTask("Cleared", projectID: p.id))
+        store.setNotes(cleared.id, "keep me")
+        store.toggleDone(listed.id)
+        store.toggleDone(cleared.id)
+        store.clearDone([cleared.id])
+        store.deleteProject(p.id)
+        #expect(Queries.completed(store.data).map(\.title).sorted() == ["Cleared", "Listed"])
+
+        store.reopen(listed.id)
+        store.reopen(cleared.id)
+        #expect(Queries.completed(store.data).isEmpty)
+        #expect(store.data.archive.isEmpty)
+        let back = try #require(store.task(cleared.id))
+        #expect(!back.isDone)
+        #expect(back.notes == "keep me")
+        #expect(back.projectID == store.data.inbox.id)
+        #expect(store.task(listed.id)?.isDone == false)
+    }
 }

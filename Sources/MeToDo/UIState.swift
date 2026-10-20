@@ -3,7 +3,7 @@ import SwiftUI
 import Observation
 
 enum SidebarItem: Hashable {
-    case today, all
+    case today, all, completed
     case project(UUID)
 }
 

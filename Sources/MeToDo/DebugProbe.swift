@@ -270,6 +270,7 @@ enum DebugProbe {
         let sidebar: String = switch ui.sidebar {
         case .today: "today"
         case .all: "all"
+        case .completed: "completed"
         case .project(let id): "project:\(store.project(id)?.name ?? id.uuidString)"
         }
         let state: [String: Any] = [

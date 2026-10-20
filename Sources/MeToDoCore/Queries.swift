@@ -58,6 +58,14 @@ public enum Queries {
         done(data).filter { $0.completedAt.map { calendar.isDate($0, inSameDayAs: now) } ?? false }
     }
 
+    /// Every finished task, still listed or already cleared, most recent first (the Completed view).
+    public static func completed(_ data: AppData) -> [CompletedTask] {
+        let projects = Dictionary(data.projects.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        // ponytail: listed tasks reuse the archive record; clearedAt is just their completion time.
+        let listed = done(data).map { CompletedTask(task: $0, project: projects[$0.projectID], clearedAt: $0.completedAt ?? .distantPast) }
+        return (listed + data.archive).sorted { $0.completedAt > $1.completedAt }
+    }
+
     public static func openCount(_ data: AppData, project: UUID) -> Int {
         data.tasks.count(where: { !$0.isDone && $0.projectID == project })
     }

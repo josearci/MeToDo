@@ -26,6 +26,12 @@ struct Sidebar: View {
                 Image(systemName: "tray.full").font(.system(size: 18)).foregroundStyle(.secondary)
             }
             .tag(SidebarItem.all)
+            row("Completed", count: 0) {
+                Image(systemName: "checkmark.circle").foregroundStyle(.secondary)
+            } big: {
+                Image(systemName: "checkmark.circle").font(.system(size: 18)).foregroundStyle(.secondary)
+            }
+            .tag(SidebarItem.completed)
             Section {
                 ForEach(data.projects) { p in
                     row(p.displayName, count: Queries.openCount(data, project: p.id)) {

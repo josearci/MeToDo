@@ -64,7 +64,7 @@ It downloads the latest release, puts **MeToDo.app** in your Applications folder
 
 You can also choose the project and time with the chips at the end of the Add field.
 
-**Done stays visible.** Finished tasks stay crossed out at the bottom until you press **Clear done**. Cleared tasks are kept in a history in your data file, ready for stats later: when each was created, completed and due, and how often it was snoozed.
+**Done stays visible.** Finished tasks stay crossed out at the bottom until you press **Clear done**. Cleared tasks are kept in a history in your data file, ready for stats later: when each was created, completed and due, and how often it was snoozed. **Completed** in the sidebar lists everything you've finished, cleared or not; untick one or click **Reopen** to bring it back.
 
 <p align="center">
   <img src="docs/images/project-editor.png" width="380" alt="Project editor with emoji tile, name and color swatches">
