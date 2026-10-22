@@ -55,11 +55,12 @@ public final class Store {
     // MARK: Tasks
 
     @discardableResult
-    public func addTask(_ title: String, projectID: UUID? = nil, remindAt: Date? = nil, inToday: Bool = false) -> TaskItem? {
+    public func addTask(_ title: String, projectID: UUID? = nil, remindAt: Date? = nil, inToday: Bool = false,
+                        notes: String = "") -> TaskItem? {
         let title = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !title.isEmpty else { return nil }
         let pid = projectID.flatMap { project($0)?.id } ?? data.inbox.id
-        let task = TaskItem(projectID: pid, title: title, remindAt: remindAt, inToday: inToday, createdAt: now())
+        let task = TaskItem(projectID: pid, title: title, remindAt: remindAt, inToday: inToday, createdAt: now(), notes: notes)
         mutate("Add Task") { $0.tasks.append(task) }
         return task
     }
@@ -93,9 +94,10 @@ public final class Store {
     }
 
     /// Saved on every keystroke (nothing lost if the app quits mid-typing) but not added to the
-    /// task undo stack: the notes text view has its own typing undo.
-    public func setNotes(_ id: UUID, _ notes: String) {
-        updateTask(id, "Edit Notes", undoable: false) { $0.notes = notes }
+    /// task undo stack: the notes text view has its own typing undo. Changes from outside the app
+    /// (`metodo`) must be undoable, or undoing an earlier change would restore a snapshot without them.
+    public func setNotes(_ id: UUID, _ notes: String, undoable: Bool = false) {
+        updateTask(id, "Edit Notes", undoable: undoable) { $0.notes = notes }
     }
 
     public func toggleToday(_ id: UUID) {

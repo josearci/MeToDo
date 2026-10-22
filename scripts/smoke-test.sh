@@ -1,6 +1,7 @@
 #!/bin/bash
 # Launches a built MeToDo.app the ways users do and checks it actually shows up:
-# first launch and relaunch open the window, a launch at login stays in the menu bar, nothing crashes.
+# first launch and relaunch open the window, a launch at login stays in the menu bar, nothing crashes,
+# and the bundled `metodo` command works with MeToDo closed and running (on throwaway data).
 # CI runs it on every supported macOS. Uses the app's real data folder, so run it on a clean machine
 # (or a copy with another bundle id).
 #
@@ -77,6 +78,22 @@ quit; open "$APP";        expect "relaunch shows the window" 1
 quit; "$TOOLS/loginlaunch" "$APP"; expect "launch at login stays in the menu bar" 0
 open "$APP";              expect "opening it while running shows the window" 1
 quit
+
+# metodo, on throwaway data: edits the file while MeToDo is closed; while it runs, the app makes the
+# change (it holds data.json.lock) and the file never loses it.
+CLI="$APP/Contents/Helpers/metodo"
+export METODO_DATA="$TOOLS/data.json"
+check() { if eval "$2"; then echo "ok   $1"; else echo "FAIL $1"; FAILED=1; fi; }
+"$CLI" add "Smoke closed" >/dev/null
+check "metodo edits the data file when MeToDo isn't running" 'grep -q "Smoke closed" "$METODO_DATA"'
+"$BIN" >/dev/null 2>&1 & disown
+for _ in $(seq 30); do lsof -t "$METODO_DATA.lock" 2>/dev/null | grep -q . && break; sleep 0.5; done
+ID_LIVE=$("$CLI" add "Smoke running" --json | sed -n 's/.*"id" : "\([^"]*\)".*/\1/p')
+"$CLI" complete "$ID_LIVE" >/dev/null
+check "metodo goes through the running app" '"$CLI" list completed | grep -q "Smoke running" && lsof -t "$METODO_DATA.lock" | grep -q .'
+quit
+check "nothing metodo did is lost when MeToDo quits" 'grep -q "Smoke closed" "$METODO_DATA" && grep -q "Smoke running" "$METODO_DATA"'
+unset METODO_DATA
 
 if ls ~/Library/Logs/DiagnosticReports/MeToDo* >/dev/null 2>&1; then
   echo "FAIL crash reports:"; ls ~/Library/Logs/DiagnosticReports/MeToDo*; FAILED=1

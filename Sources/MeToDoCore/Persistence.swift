@@ -14,8 +14,13 @@ public struct Persistence: Sendable {
 
     public init(url: URL) { self.url = url }
 
+    /// ~/Library/Application Support/MeToDo/data.json, or the file in $METODO_DATA (tests, scripts):
+    /// the app and `metodo` both honor it.
     public static var defaultURL: URL {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        if let path = ProcessInfo.processInfo.environment["METODO_DATA"], !path.isEmpty {
+            return URL(fileURLWithPath: path)
+        }
+        return FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("MeToDo")
             .appendingPathComponent("data.json")
     }

@@ -94,6 +94,47 @@ You can also choose the project and time with the chips at the end of the Add fi
 | → / ← | Expand or collapse a task |
 | ⌘Z / ⇧⌘Z | Undo / redo |
 
+## Command line and automation
+
+MeToDo comes with a `metodo` command, so you (or an AI assistant in your terminal) can read and change your tasks. The installer links it into `~/.local/bin`. Installed MeToDo before the command existed? Run the installer again, or link it yourself:
+
+```bash
+ln -s /Applications/MeToDo.app/Contents/Helpers/metodo ~/.local/bin/metodo
+```
+
+```bash
+metodo list                       # open tasks; also: list today, list completed, --project work
+metodo projects
+metodo add "Call Ana" --project work --due "tomorrow 9am" --notes "About the budget"
+metodo add --parse "Pay rent #home friday"     # read #project and the date from the title, like the Add field
+metodo show 3f2a1b9c              # notes and numbered subtasks
+metodo complete 3f2a1b9c          # also: reopen (brings back cleared tasks too), delete
+metodo edit 3f2a --title "Call Ana back" --due none --project inbox
+metodo subtask add 3f2a "Find the invoice"
+metodo subtask complete 3f2a 1    # by number, or by subtask id
+metodo list today --json          # full ids and fields, for scripts and assistants
+```
+
+- **Ids:** lists show the first 8 characters of each task's id; any unique prefix of 4 or more works.
+- **Dates (`--due`):** anything the Add field understands (`tomorrow 9am`, `friday`, `next monday 3pm`, `in 2 hours`), or `2026-10-23`, `2026-10-23 14:30`, ISO 8601. `--due none` removes the reminder.
+- **Every option and example:** `metodo --help`.
+
+**Safe while MeToDo is open.** When the app is running, `metodo` hands each command to it: the window updates at once, the change is saved before the command returns, and ⌘Z in the app undoes it. When the app isn't running, `metodo` edits `data.json` itself. A lock file (`data.json.lock`) keeps the two from ever writing at the same time, so nothing gets overwritten. Don't edit `data.json` by hand while MeToDo is open; use `metodo`.
+
+**Links.** Anything that can open a URL (Shortcuts, Raycast, a script, a browser) can use `metodo://` links. They take the same commands, with the options as query parameters:
+
+```
+metodo://add?title=Buy%20milk&project=home&due=tomorrow%209am
+metodo://add?title=Plan%20trip&today=1&notes=Check%20flights
+metodo://complete?id=3f2a1b9c
+metodo://reopen?id=3f2a1b9c
+metodo://edit?id=3f2a1b9c&due=friday%205pm
+metodo://subtask/add?id=3f2a1b9c&title=Book%20hotel
+metodo://subtask/complete?id=3f2a1b9c&subtask=1
+```
+
+`open "metodo://add?title=Buy%20milk"` works from Terminal. MeToDo opens if it isn't running. Deleting isn't available from a link, since any web page can open one.
+
 ## Your data
 
 - **Where it lives:** all your tasks are stored on your Mac, in `~/Library/Application Support/MeToDo/data.json`. A backup copy, `data.json.bak`, is refreshed every time the app starts. To back up, copy that folder.
@@ -101,14 +142,17 @@ You can also choose the project and time with the chips at the end of the Add fi
 
 ## Uninstall
 
-Quit MeToDo from the ⚙︎ menu in its popover, then delete **MeToDo.app** from Applications. To remove your tasks too, also delete `~/Library/Application Support/MeToDo`.
+Quit MeToDo from the ⚙︎ menu in its popover, then delete **MeToDo.app** from Applications and `~/.local/bin/metodo`. To remove your tasks too, also delete `~/Library/Application Support/MeToDo`.
 
 ## Development
 
 ```bash
-swift test                    # core tests (models, Today logic, quick add, store, updates)
-./scripts/dev-install.sh      # build this checkout and install it into /Applications
+swift test                    # core tests (models, Today logic, quick add, store, CLI, updates)
+./scripts/dev-install.sh      # build this checkout, install it into /Applications, link metodo
+METODO_DATA=/tmp/test/data.json swift run MeToDoCLI list   # the CLI against throwaway data
 ```
+
+`METODO_DATA` points both the app and `metodo` at another data file, so you can try changes without touching your real tasks. The CLI's source is `Sources/MeToDoCLI` (the binary is renamed to `metodo` inside the app, in `Contents/Helpers`); the commands themselves live in `Sources/MeToDoCore/CLI.swift` and the app/CLI handoff in `AppLink.swift`.
 
 **How a release happens:** every push to `main` runs `.github/workflows/release.yml`. It runs the tests, builds a universal `MeToDo.app` with `scripts/build-app.sh`, and publishes it as a GitHub Release tagged `v1.0.<commit count>`. Installed copies pick it up on their next update check.
 

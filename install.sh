@@ -1,5 +1,6 @@
 #!/bin/bash
-# Installs the latest MeToDo release into /Applications (~/Applications without admin rights). After this, MeToDo updates itself.
+# Installs the latest MeToDo release into /Applications (~/Applications without admin rights) and links its
+# `metodo` command into ~/.local/bin. After this, MeToDo updates itself.
 #
 #   curl -fsSL https://raw.githubusercontent.com/josearci/MeToDo/main/install.sh | bash
 #
@@ -35,6 +36,19 @@ rm -rf "$DEST/MeToDo.app"
 ditto "$APP" "$DEST/MeToDo.app"
 xattr -dr com.apple.quarantine "$DEST/MeToDo.app" 2>/dev/null || true
 open "$DEST/MeToDo.app"
+
+# The `metodo` command: a link into the app, so app updates update it too.
+BIN_DIR="$HOME/.local/bin"
+mkdir -p "$BIN_DIR"
+if [ -e "$BIN_DIR/metodo" ] && [ ! -L "$BIN_DIR/metodo" ]; then
+  echo "Left $BIN_DIR/metodo alone (it isn't MeToDo's); the command is at $DEST/MeToDo.app/Contents/Helpers/metodo."
+else
+  ln -sfn "$DEST/MeToDo.app/Contents/Helpers/metodo" "$BIN_DIR/metodo"
+  case ":$PATH:" in
+    *":$BIN_DIR:"*) echo "The metodo command is ready: try 'metodo --help'." ;;
+    *) echo "The metodo command is in $BIN_DIR, which isn't on your PATH. Add this to ~/.zshrc: export PATH=\"\$HOME/.local/bin:\$PATH\"" ;;
+  esac
+fi
 
 echo "MeToDo $VERSION is installed in $DEST and running in your menu bar (✓ icon, or press ⌃⌥M)."
 echo "Don't see the icon? It may be hidden by the notch or under System Settings › Menu Bar; opening MeToDo again always shows its window."

@@ -11,17 +11,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let undoManager = UndoManager()
     private var timer: Timer?
     private var statusItem: StatusItemController?
+    /// Held for the app's lifetime so `metodo` never writes data.json under us (see AppLink).
+    private let dataLock: Int32?
+    private var cliPort: CFMessagePort?
 
     override init() {
-        #if DEBUG
-        store = Store(persistence: Persistence(url: DebugProbe.dataURL ?? Persistence.defaultURL))
-        #else
-        store = Store(persistence: Persistence(url: Persistence.defaultURL))
-        #endif
+        let persistence = Persistence(url: Persistence.defaultURL)
+        let link = AppLink(persistence: persistence)
+        // Taken before loading, so a `metodo` mid-write finishes first. ponytail: gives up after 10 s
+        // (another copy of the app has it); two copies at once already overwrote each other before the CLI.
+        dataLock = link.lock(timeout: 10)
+        store = Store(persistence: persistence)
         ui = UIState()
         reminders = ReminderScheduler(store: store, ui: ui)
         super.init()
         store.undoManager = undoManager
+        cliPort = link.serve { [store] args in Self.runCLI(store) { CLI.run(args, store: store) } }
+    }
+
+    /// Runs a `metodo` command or metodo:// link on the live store and saves before answering,
+    /// so the change is on disk by the time the CLI prints it.
+    private static func runCLI(_ store: Store, _ command: () -> CLI.Output) -> CLI.Output {
+        let before = store.data
+        let output = command()
+        if store.data != before { store.saveNow() }
+        return output
+    }
+
+    /// metodo://add?title=…, metodo://complete?id=… (see CLI.run(url:store:)).
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls {
+            let output = Self.runCLI(store) { CLI.run(url: url, store: store) }
+            guard output.status != 0 else { continue }
+            NSApp.activate()
+            let alert = NSAlert()
+            alert.messageText = "MeToDo couldn't open that link"
+            alert.informativeText = output.err.replacingOccurrences(of: "metodo: ", with: "")
+            alert.runModal()
+        }
     }
 
     func applicationWillFinishLaunching(_ notification: Notification) {
@@ -86,6 +113,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
     func applicationWillTerminate(_ notification: Notification) {
+        if let cliPort { CFMessagePortInvalidate(cliPort) }   // metodo now waits for the lock instead
         store.saveNow()
     }
 

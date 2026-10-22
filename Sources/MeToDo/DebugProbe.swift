@@ -4,14 +4,10 @@ import SwiftUI
 import MeToDoCore
 
 /// Debug builds only: lets an outside test script see the app without screen-recording permission.
-/// `METODO_DATA=/path/data.json` points the app at test data; posting the distributed notification
-/// "com.josearci.metodo.probe" writes a PNG of every visible window plus state.json to /tmp/metodo-probe/.
+/// `METODO_DATA=/path/data.json` points the app at test data (see Persistence.defaultURL); posting the distributed
+/// notification "com.josearci.metodo.probe" writes a PNG of every visible window plus state.json to /tmp/metodo-probe/.
 @MainActor
 enum DebugProbe {
-    static var dataURL: URL? {
-        ProcessInfo.processInfo.environment["METODO_DATA"].map { URL(fileURLWithPath: $0) }
-    }
-
     static func install(store: Store, ui: UIState, reminders: ReminderScheduler) {
         self.reminders = reminders
         probeStore = store

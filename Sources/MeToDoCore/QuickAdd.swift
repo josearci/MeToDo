@@ -17,18 +17,49 @@ public enum QuickAdd {
             text.replaceSubrange(r, with: " ")
         }
         var remindAt: Date?
-        if let found = detectRelative(in: text, calendar: calendar) ?? detectDate(in: text) {
+        if let found = findDate(in: text, calendar: calendar) {
             let (date, r) = found
-            let phrase = String(text[r])
-            remindAt = hasTime(phrase) ? date : calendar.date(bySettingHour: 9, minute: 0, second: 0, of: date)
-            // "Call mom 5pm" typed at 6 PM means tomorrow, not "already overdue".
-            if let d = remindAt, d < Date(), phrase.range(of: timeOnly, options: .regularExpression) != nil {
-                remindAt = calendar.date(byAdding: .day, value: 1, to: d)
-            }
+            remindAt = date
             text = dropTrailingPreposition(String(text[..<r.lowerBound])) + " " + text[r.upperBound...]
         }
         let title = text.split(whereSeparator: \.isWhitespace).joined(separator: " ")
         return title.isEmpty ? nil : QuickAddResult(title: title, projectID: projectID, remindAt: remindAt)
+    }
+
+    /// A date phrase on its own, for `metodo --due`: anything the Add field understands ("tomorrow 9am",
+    /// "friday", "in 2 hours"), or "2026-10-23", "2026-10-23 14:30", full ISO 8601. nil unless the whole
+    /// phrase is a date, so a typo errors instead of silently dropping words.
+    public static func date(from phrase: String, calendar: Calendar = .current) -> Date? {
+        let trimmed = phrase.trimmingCharacters(in: .whitespaces)
+        if let d = ISO8601DateFormatter().date(from: trimmed) { return d }
+        for format in ["yyyy-MM-dd'T'HH:mm", "yyyy-MM-dd HH:mm", "yyyy-MM-dd"] {
+            let f = DateFormatter()
+            f.locale = Locale(identifier: "en_US_POSIX")
+            f.calendar = calendar
+            f.timeZone = calendar.timeZone
+            f.dateFormat = format
+            if let d = f.date(from: trimmed) {
+                return format.count > 10 ? d : calendar.date(bySettingHour: 9, minute: 0, second: 0, of: d)
+            }
+        }
+        guard let found = findDate(in: trimmed, calendar: calendar) else { return nil }
+        let (date, r) = found
+        let rest = String(trimmed[..<r.lowerBound]) + " " + trimmed[r.upperBound...]
+        let filler: Set<String> = ["at", "on", "by"]
+        return rest.split(whereSeparator: \.isWhitespace).allSatisfy { filler.contains($0.lowercased()) } ? date : nil
+    }
+
+    /// The first date phrase in `text` and where it is. No time given means 9:00.
+    static func findDate(in text: String, calendar: Calendar) -> (Date, Range<String.Index>)? {
+        guard let found = detectRelative(in: text, calendar: calendar) ?? detectDate(in: text) else { return nil }
+        let (date, r) = found
+        let phrase = String(text[r])
+        guard var d = hasTime(phrase) ? date : calendar.date(bySettingHour: 9, minute: 0, second: 0, of: date) else { return nil }
+        // "Call mom 5pm" typed at 6 PM means tomorrow, not "already overdue".
+        if d < Date(), phrase.range(of: timeOnly, options: .regularExpression) != nil {
+            d = calendar.date(byAdding: .day, value: 1, to: d) ?? d
+        }
+        return (d, r)
     }
 
     /// Exact normalized name wins; otherwise a prefix that matches exactly one project.

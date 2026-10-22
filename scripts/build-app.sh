@@ -10,17 +10,19 @@ REPO=${METODO_UPDATE_REPO:-$(git remote get-url origin 2>/dev/null | sed -E 's#^
 ARCHS=(--arch arm64 --arch x86_64)
 
 swift build -c release "${ARCHS[@]}"
-BIN="$(swift build -c release "${ARCHS[@]}" --show-bin-path)/MeToDo"
+BINS="$(swift build -c release "${ARCHS[@]}" --show-bin-path)"
 
 APP=.build/MeToDo.app
 rm -rf "$APP"
-mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$BIN" "$APP/Contents/MacOS/MeToDo"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Helpers"
+cp "$BINS/MeToDo" "$APP/Contents/MacOS/MeToDo"
+cp "$BINS/MeToDoCLI" "$APP/Contents/Helpers/metodo"   # the `metodo` command; installers link it into ~/.local/bin
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString 1.0.$BUILD" -c "Set :CFBundleVersion $BUILD" "$APP/Contents/Info.plist"
 if [ -n "$REPO" ]; then
   /usr/libexec/PlistBuddy -c "Add :MeToDoUpdateRepo string $REPO" "$APP/Contents/Info.plist"
 fi
+codesign --force --sign - "$APP/Contents/Helpers/metodo"
 codesign --force --sign - "$APP"
 echo "Built $APP — MeToDo 1.0.$BUILD${REPO:+, updates from github.com/$REPO}"
