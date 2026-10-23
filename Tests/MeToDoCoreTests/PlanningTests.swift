@@ -101,6 +101,37 @@ import Foundation
         ])
     }
 
+    /// The reported bug: pinned tasks due tomorrow kept insertion order instead of sorting by due time.
+    @Test func todaySortsSamePriorityByEffectiveDueEvenOnLaterDays() {
+        let tasks = [
+            TaskItem(projectID: work.id, title: "carry-over", remindAt: iso("2026-10-07T11:00:00Z"), inToday: true, priority: .high),
+            TaskItem(projectID: work.id, title: "spam", remindAt: iso("2026-10-10T12:00:00Z"), inToday: true, subtasks: [
+                Subtask(title: "done early", isDone: true, dueAt: iso("2026-10-07T08:00:00Z")),
+                Subtask(title: "a", dueAt: iso("2026-10-07T16:30:00Z")),
+                Subtask(title: "b", dueAt: iso("2026-10-07T13:30:00Z")),
+            ], priority: .high),
+            TaskItem(projectID: work.id, title: "knowbe4", remindAt: iso("2026-10-07T10:30:00Z"), inToday: true, priority: .high),
+            TaskItem(projectID: work.id, title: "davivienda", remindAt: iso("2026-10-07T09:00:00Z"), inToday: true, priority: .high),
+        ]
+        #expect(Queries.today(data(tasks), now: now, calendar: utc).map(\.title) == ["davivienda", "knowbe4", "carry-over", "spam"])
+    }
+
+    @Test func todayUndatedAfterDatedThenManualOrderAndPriorityDominates() {
+        let tasks = [
+            TaskItem(projectID: work.id, title: "undated 1", inToday: true),
+            TaskItem(projectID: work.id, title: "done sub only", inToday: true,
+                     subtasks: [Subtask(title: "s", isDone: true, dueAt: iso("2026-10-05T09:00:00Z"))]),
+            TaskItem(projectID: work.id, title: "same 15:00 a", remindAt: iso("2026-10-06T15:00:00Z")),
+            TaskItem(projectID: work.id, title: "tomorrow", remindAt: iso("2026-10-07T09:00:00Z"), inToday: true),
+            TaskItem(projectID: work.id, title: "same 15:00 b", remindAt: iso("2026-10-06T15:00:00Z")),
+            TaskItem(projectID: work.id, title: "low overdue", remindAt: iso("2026-10-01T09:00:00Z"), priority: .low),
+            TaskItem(projectID: work.id, title: "urgent undated", inToday: true, priority: .urgent),
+        ]
+        #expect(Queries.today(data(tasks), now: now, calendar: utc).map(\.title) == [
+            "urgent undated", "low overdue", "same 15:00 a", "same 15:00 b", "tomorrow", "undated 1", "done sub only",
+        ])
+    }
+
     @Test func minutesLeftPrefersSubtaskBreakdown() {
         let plain = TaskItem(projectID: work.id, title: "plain", estimate: 60)
         #expect(Queries.minutesLeft(plain) == 60)

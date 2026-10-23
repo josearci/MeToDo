@@ -23,7 +23,7 @@ import Foundation
         #expect(!Queries.isInToday(TaskItem(projectID: p, title: "done", isDone: true, inToday: true), now: now, calendar: utc))
     }
 
-    @Test func todayOrderIsOverdueThenTimedThenPicks() {
+    @Test func todayOrderIsOverdueThenTimedThenUndated() {
         let d0 = AppData.fresh()
         let inbox = d0.inbox.id
         let a = TaskItem(projectID: sprint.id, title: "A pinned", inToday: true)
@@ -36,7 +36,7 @@ import Foundation
         var d = d0
         d.projects += [sprint]
         d.tasks = [a, e, b, c, dd, f, g]
-        #expect(Queries.today(d, now: now, calendar: utc).map(\.title) == ["C yesterday", "D 09:00", "B 15:00", "A pinned", "E pinned future"])
+        #expect(Queries.today(d, now: now, calendar: utc).map(\.title) == ["C yesterday", "D 09:00", "B 15:00", "E pinned future", "A pinned"])
     }
 
     @Test func upNextIsEverythingOpenOutsideTodayInProjectOrder() {

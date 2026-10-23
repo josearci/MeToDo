@@ -75,21 +75,14 @@ public enum Queries {
         data.tasks.count(where: { !$0.isDone && $0.projectID == project })
     }
 
-    /// Highest priority first; within a priority, spec §6: overdue (oldest first), then later today (by time),
-    /// then the rest in project order. A subtask's due time counts as the task's.
+    /// Highest priority first; within a priority, earliest effective due time (`nextDue`, so overdue first and
+    /// a pinned task due on a later day still counts), undated last; then manual order (project, then list).
     public static func today(_ data: AppData, now: Date, calendar: Calendar = .current) -> [TaskItem] {
-        let endOfToday = at(hour: 0, daysFromNow: 1, now: now, calendar: calendar)
-        func due(_ t: TaskItem) -> Date? { nextDue(t).flatMap { $0 < endOfToday ? $0 : nil } }
-        func bucket(_ t: TaskItem) -> Int {
-            guard let r = due(t) else { return 2 }
-            return r <= now ? 0 : 1
-        }
         let todays = ordered(data.tasks.filter { isInToday($0, now: now, calendar: calendar) }, projects: data.projects)
         return todays.enumerated().sorted { a, b in
             if a.element.priority != b.element.priority { return a.element.priority > b.element.priority }
-            let (ba, bb) = (bucket(a.element), bucket(b.element))
-            if ba != bb { return ba < bb }
-            if ba < 2, let ra = due(a.element), let rb = due(b.element), ra != rb { return ra < rb }
+            let (ra, rb) = (nextDue(a.element) ?? .distantFuture, nextDue(b.element) ?? .distantFuture)
+            if ra != rb { return ra < rb }
             return a.offset < b.offset
         }.map(\.element)
     }
