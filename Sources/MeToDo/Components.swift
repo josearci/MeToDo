@@ -316,3 +316,84 @@ struct ProjectMenuLabel: View {
         return image
     }
 }
+
+extension Priority {
+    var label: String { self == .none ? "None" : rawValue.capitalized }
+
+    /// The row's flag. None draws nothing.
+    var color: Color {
+        switch self {
+        case .none: .secondary
+        case .low: ProjectColor.blue.color
+        case .medium: ProjectColor.yellow.color
+        case .high: ProjectColor.orange.color
+        case .urgent: ProjectColor.red.color
+        }
+    }
+}
+
+/// Priority choices with a checkmark on the current one, for menus.
+struct PriorityMenuItems: View {
+    let selection: Priority
+    let onPick: (Priority) -> Void
+
+    var body: some View {
+        Picker("Priority", selection: Binding(get: { selection }, set: onPick)) {
+            ForEach(Priority.allCases.reversed(), id: \.self) { Text($0.label).tag($0) }
+        }
+        .pickerStyle(.inline)
+        .labelsHidden()
+    }
+}
+
+/// Estimate presets (plus the current value if it isn't one, e.g. set from `metodo`), for menus.
+struct EstimateMenuItems: View {
+    let minutes: Int?
+    let onPick: (Int?) -> Void
+    static let presets = [15, 30, 45, 60, 90, 120, 180, 240]
+
+    var body: some View {
+        Picker("Estimate", selection: Binding(get: { minutes ?? 0 }, set: { onPick($0 == 0 ? nil : $0) })) {
+            Text("None").tag(0)
+            ForEach(Set(Self.presets + [minutes ?? 15]).sorted(), id: \.self) { Text(Queries.durationLabel($0)).tag($0) }
+        }
+        .pickerStyle(.inline)
+        .labelsHidden()
+    }
+}
+
+/// A small menu chip in the expanded task: "Priority: High", "1h 30m".
+struct ChipMenu<Items: View>: View {
+    let icon: String
+    let text: String
+    let tint: Color
+    @ViewBuilder let items: () -> Items
+
+    var body: some View {
+        Menu(content: items) {
+            Label(text, systemImage: icon)
+                .font(.caption)
+                .foregroundStyle(tint)
+                .padding(.horizontal, 7).padding(.vertical, 3)
+                .background(tint.opacity(0.14), in: Capsule())
+        }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
+        .fixedSize()
+    }
+}
+
+/// Today's "5h 30m planned" (popover; the window shows it in its subtitle).
+struct PlannedLabel: View {
+    let minutes: Int
+
+    var body: some View {
+        if minutes > 0 {
+            Label("\(Queries.durationLabel(minutes)) planned", systemImage: "clock")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .padding(.top, 4)
+        }
+    }
+}

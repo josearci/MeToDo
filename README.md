@@ -30,7 +30,7 @@ It downloads the latest release, puts **MeToDo.app** in your Applications folder
 
 **Today, All and Completed.**
 - **All** shows everything, grouped by project.
-- **Today** shows tasks due today, tasks that are overdue, and anything you pull in with ☀️.
+- **Today** shows tasks due today, tasks that are overdue, tasks with a subtask due today, and anything you pull in with ☀️. It's one list, highest priority first, then by due time, then in your own order, and its header adds up the estimates: “4 open · 5h 30m planned”.
 - When Today is empty, you see **Up next**, so there's always something to pick.
 - **Completed** lists everything you've finished, newest first, including tasks you've cleared.
 
@@ -39,6 +39,8 @@ It downloads the latest release, puts **MeToDo.app** in your Applications folder
 <p align="center">
   <img src="docs/images/today-expanded.png" width="820" alt="Today view with a task expanded to show notes and subtasks">
 </p>
+
+**Priority and estimates.** Give a task a priority (low, medium, high, urgent; a small colored flag on its row) and an estimate of how long it takes (a ⏱ 1h 30m on its row). Set them from the chips at the top of an expanded task, or by right-clicking it. Subtasks can have their own due date and estimate (right-click a subtask): break a long task into pieces spread over the week, and each piece shows up in Today on its day. When subtasks have estimates, the task's row shows the time left in its open subtasks, and Today only counts the pieces due by today.
 
 **Reminders that don't get lost.**
 - Alerts stay on screen until you act on them: **Complete**, **Snooze 10 min**, **Snooze 1 hr** or **Tomorrow 9 AM**.
@@ -115,8 +117,26 @@ metodo subtask complete 3f2a 1    # by number, or by subtask id
 metodo list today --json          # full ids and fields, for scripts and assistants
 ```
 
+Planning the day (this is what an assistant needs to prioritize, estimate and split work):
+
+```bash
+metodo add "Quarterly report" --priority high --estimate 6h
+metodo edit 3f2a --priority urgent --estimate 1h30m   # --priority none / --estimate none clear them
+metodo subtask add 3f2a "Outline" --due "today 3pm" --estimate 45m
+metodo subtask add 3f2a "Draft" --due "thursday 10am" --estimate 3h
+metodo subtask edit 3f2a 2 --due friday --estimate 2h
+metodo today                      # same as list today; ends with "5h 30m planned"
+metodo today add 3f2a 9b1c        # pull into Today (☀️)
+metodo today remove 9b1c          # take the ☀️ off
+```
+
+`list today --json` gives each task's `id`, `priority`, `estimate` and `minutesLeft` (minutes), `due`, `overdue`, `inToday`/`today`, and its `subtasks` with `id`, `done`, `due` and `estimate`.
+
 - **Ids:** lists show the first 8 characters of each task's id; any unique prefix of 4 or more works.
 - **Dates (`--due`):** anything the Add field understands (`tomorrow 9am`, `friday`, `next monday 3pm`, `in 2 hours`), or `2026-10-23`, `2026-10-23 14:30`, ISO 8601. `--due none` removes the reminder.
+- **Priority (`--priority`):** `none`, `low`, `medium`, `high`, `urgent` (a prefix like `h` or `med` works), or `P1` (urgent) to `P4` (low).
+- **Estimate (`--estimate`):** `90m`, `45 min`, `2h`, `1.5h`, `1h30m`, `1:30`, or plain minutes.
+- **Removing from Today** only takes the ☀️ off. A task due today (or with a subtask due today) stays until you reschedule it.
 - **Every option and example:** `metodo --help`.
 
 **Safe while MeToDo is open.** When the app is running, `metodo` hands each command to it: the window updates at once, the change is saved before the command returns, and ⌘Z in the app undoes it. When the app isn't running, `metodo` edits `data.json` itself. A lock file (`data.json.lock`) keeps the two from ever writing at the same time, so nothing gets overwritten. Don't edit `data.json` by hand while MeToDo is open; use `metodo`.
@@ -128,7 +148,8 @@ metodo://add?title=Buy%20milk&project=home&due=tomorrow%209am
 metodo://add?title=Plan%20trip&today=1&notes=Check%20flights
 metodo://complete?id=3f2a1b9c
 metodo://reopen?id=3f2a1b9c
-metodo://edit?id=3f2a1b9c&due=friday%205pm
+metodo://edit?id=3f2a1b9c&due=friday%205pm&priority=high&estimate=1h
+metodo://today/add?id=3f2a1b9c
 metodo://subtask/add?id=3f2a1b9c&title=Book%20hotel
 metodo://subtask/complete?id=3f2a1b9c&subtask=1
 ```

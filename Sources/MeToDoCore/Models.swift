@@ -38,15 +38,38 @@ public struct Project: Codable, Identifiable, Hashable, Sendable {
     }
 }
 
+/// Highest first in Today. Saved by name, so the file stays readable.
+public enum Priority: String, Codable, CaseIterable, Comparable, Sendable {
+    case none, low, medium, high, urgent
+
+    public static func < (a: Priority, b: Priority) -> Bool {
+        allCases.firstIndex(of: a)! < allCases.firstIndex(of: b)!
+    }
+
+    /// "high", "h", "med", "P1" (= urgent) … "P4" (= low); nil when it's none of those.
+    public init?(parsing s: String) {
+        let s = s.trimmingCharacters(in: .whitespaces).lowercased()
+        let p: [String: Priority] = ["p1": .urgent, "p2": .high, "p3": .medium, "p4": .low]
+        guard let found = p[s] ?? (s.isEmpty ? nil : Self.allCases.first { $0.rawValue.hasPrefix(s) }) else { return nil }
+        self = found
+    }
+}
+
 public struct Subtask: Codable, Identifiable, Hashable, Sendable {
     public var id: UUID
     public var title: String
     public var isDone: Bool
+    /// A due day/time of its own; one due today pulls the parent task into Today.
+    public var dueAt: Date?
+    /// Minutes.
+    public var estimate: Int?
 
-    public init(id: UUID = UUID(), title: String, isDone: Bool = false) {
+    public init(id: UUID = UUID(), title: String, isDone: Bool = false, dueAt: Date? = nil, estimate: Int? = nil) {
         self.id = id
         self.title = title
         self.isDone = isDone
+        self.dueAt = dueAt
+        self.estimate = estimate
     }
 }
 
@@ -66,10 +89,14 @@ public struct TaskItem: Codable, Identifiable, Hashable, Sendable {
     public var snoozeCount: Int
     /// Free-form extra information, shown when the task is expanded.
     public var notes: String
+    public var priority: Priority
+    /// How long it should take, in minutes.
+    public var estimate: Int?
 
     public init(id: UUID = UUID(), projectID: UUID, title: String, isDone: Bool = false,
                 completedAt: Date? = nil, remindAt: Date? = nil, inToday: Bool = false,
-                subtasks: [Subtask] = [], createdAt: Date? = nil, snoozeCount: Int = 0, notes: String = "") {
+                subtasks: [Subtask] = [], createdAt: Date? = nil, snoozeCount: Int = 0, notes: String = "",
+                priority: Priority = .none, estimate: Int? = nil) {
         self.id = id
         self.projectID = projectID
         self.title = title
@@ -81,6 +108,8 @@ public struct TaskItem: Codable, Identifiable, Hashable, Sendable {
         self.createdAt = createdAt
         self.snoozeCount = snoozeCount
         self.notes = notes
+        self.priority = priority
+        self.estimate = estimate
     }
 
     /// Fields added later default when missing, so older data files keep loading.
@@ -97,6 +126,9 @@ public struct TaskItem: Codable, Identifiable, Hashable, Sendable {
         createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt)
         snoozeCount = try c.decodeIfPresent(Int.self, forKey: .snoozeCount) ?? 0
         notes = try c.decodeIfPresent(String.self, forKey: .notes) ?? ""
+        // A priority this version doesn't know (hand edit, newer app) reads as none instead of failing the whole file.
+        priority = (try? c.decodeIfPresent(Priority.self, forKey: .priority)) ?? .none
+        estimate = try c.decodeIfPresent(Int.self, forKey: .estimate)
     }
 
     public var subtaskProgress: (done: Int, total: Int) {

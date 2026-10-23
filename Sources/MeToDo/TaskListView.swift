@@ -18,8 +18,12 @@ struct TaskListView: View {
                         AllClear(hasUpNext: !upNext.isEmpty).listRowSeparator(.hidden)
                         groups(upNext, movable: false, alwaysShowSun: true)
                     } else {
-                        // Same layout as All, just today's tasks (Today order kept inside each project).
-                        groups(today, movable: false)
+                        // One list in Today order (priority first), each task tagged with its project.
+                        ForEach(today) { t in
+                            TaskRow(task: t, showProjectTag: true)
+                                .rail(store.project(t.projectID)?.tint ?? ProjectColor.gray.tint)
+                                .itemProvider { NSItemProvider(object: t.id.uuidString as NSString) }
+                        }
                     }
                 case .all:
                     let open = Queries.open(data)
@@ -54,7 +58,7 @@ struct TaskListView: View {
                 .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 16)
         }
         .navigationTitle(title)
-        .navigationSubtitle(ui.sidebar == .completed ? "\(Queries.completed(data).count) done" : "\(openCount) open")
+        .navigationSubtitle(subtitle)
     }
 
     /// Projects in order, each with its header and color rail. Drag to reorder inside a project;
@@ -115,6 +119,17 @@ struct TaskListView: View {
         case .all: "All"
         case .project(let id): store.project(id)?.displayName ?? "Project"
         case .completed: "Completed"
+        }
+    }
+
+    private var subtitle: String {
+        switch ui.sidebar {
+        case .completed: return "\(Queries.completed(store.data).count) done"
+        case .today:
+            let today = Queries.today(store.data, now: ui.now)
+            let planned = Queries.planned(today, now: ui.now)
+            return "\(today.count) open" + (planned > 0 ? " · \(Queries.durationLabel(planned)) planned" : "")
+        default: return "\(openCount) open"
         }
     }
 

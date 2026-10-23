@@ -5,12 +5,15 @@ import MeToDoCore
 struct ReminderPicker: View {
     @Environment(\.dismiss) private var dismiss
     let current: Date?
+    /// Overrides "Remind me" / "Change reminder" (subtask due dates don't remind).
+    var title: String?
     let onSet: (Date?) -> Void
     @State private var day: Date
     @State private var time: Date
 
-    init(current: Date?, onSet: @escaping (Date?) -> Void) {
+    init(current: Date?, title: String? = nil, onSet: @escaping (Date?) -> Void) {
         self.current = current
+        self.title = title
         self.onSet = onSet
         let start = current ?? Queries.at(hour: 9, daysFromNow: 1, now: Date())
         _day = State(initialValue: start)
@@ -21,7 +24,7 @@ struct ReminderPicker: View {
         let now = Date()
         let calendar = Calendar.current
         VStack(alignment: .leading, spacing: 0) {
-            Text(current == nil ? "Remind me" : "Change reminder")
+            Text(title ?? (current == nil ? "Remind me" : "Change reminder"))
                 .font(.headline)
                 .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 8)
 

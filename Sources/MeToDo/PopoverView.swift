@@ -85,8 +85,12 @@ struct PopoverView: View {
                 AllClear(hasUpNext: !upNext.isEmpty)
                 groupList(upNext, alwaysShowSun: true)
             } else {
-                // Same layout as All, just today's tasks (Today order kept inside each project).
-                groupList(Queries.grouped(today, projects: data.projects))
+                // One list in Today order (priority first), each task tagged with its project.
+                PlannedLabel(minutes: Queries.planned(today, now: ui.now))
+                ForEach(today) { t in
+                    TaskRow(task: t, showProjectTag: true, compact: true)
+                        .rail(data.projects.first { $0.id == t.projectID }?.tint ?? ProjectColor.gray.tint)
+                }
             }
         }
         let done = ui.popoverShowsAll ? Queries.done(data) : Queries.doneToday(data, now: ui.now)

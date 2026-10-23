@@ -56,11 +56,12 @@ public final class Store {
 
     @discardableResult
     public func addTask(_ title: String, projectID: UUID? = nil, remindAt: Date? = nil, inToday: Bool = false,
-                        notes: String = "") -> TaskItem? {
+                        notes: String = "", priority: Priority = .none, estimate: Int? = nil) -> TaskItem? {
         let title = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !title.isEmpty else { return nil }
         let pid = projectID.flatMap { project($0)?.id } ?? data.inbox.id
-        let task = TaskItem(projectID: pid, title: title, remindAt: remindAt, inToday: inToday, createdAt: now(), notes: notes)
+        let task = TaskItem(projectID: pid, title: title, remindAt: remindAt, inToday: inToday, createdAt: now(), notes: notes,
+                            priority: priority, estimate: estimate)
         mutate("Add Task") { $0.tasks.append(task) }
         return task
     }
@@ -102,6 +103,20 @@ public final class Store {
 
     public func toggleToday(_ id: UUID) {
         updateTask(id, "Toggle Today") { $0.inToday.toggle() }
+    }
+
+    /// Sets ☀️ rather than flipping it (the CLI's `today add/remove`). Done tasks never get it.
+    public func setToday(_ id: UUID, _ on: Bool) {
+        updateTask(id, on ? "Add to Today" : "Remove from Today") { $0.inToday = on && !$0.isDone }
+    }
+
+    public func setPriority(_ id: UUID, _ priority: Priority) {
+        updateTask(id, "Set Priority") { $0.priority = priority }
+    }
+
+    /// Minutes; nil or 0 clears it.
+    public func setEstimate(_ id: UUID, _ minutes: Int?) {
+        updateTask(id, "Set Estimate") { $0.estimate = minutes.flatMap { $0 > 0 ? $0 : nil } }
     }
 
     public func setReminder(_ id: UUID, _ date: Date?) {
@@ -174,10 +189,10 @@ public final class Store {
     // MARK: Subtasks
 
     @discardableResult
-    public func addSubtask(_ taskID: UUID, title: String) -> Subtask? {
+    public func addSubtask(_ taskID: UUID, title: String, dueAt: Date? = nil, estimate: Int? = nil) -> Subtask? {
         let title = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !title.isEmpty, task(taskID) != nil else { return nil }
-        let sub = Subtask(title: title)
+        let sub = Subtask(title: title, dueAt: dueAt, estimate: estimate.flatMap { $0 > 0 ? $0 : nil })
         updateTask(taskID, "Add Subtask") { $0.subtasks.append(sub) }
         return sub
     }
@@ -190,6 +205,15 @@ public final class Store {
         let title = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !title.isEmpty else { return }
         updateSubtask(taskID, subID, "Rename Subtask") { $0.title = title }
+    }
+
+    public func setSubtaskDue(_ taskID: UUID, _ subID: UUID, _ date: Date?) {
+        updateSubtask(taskID, subID, "Set Subtask Due") { $0.dueAt = date }
+    }
+
+    /// Minutes; nil or 0 clears it.
+    public func setSubtaskEstimate(_ taskID: UUID, _ subID: UUID, _ minutes: Int?) {
+        updateSubtask(taskID, subID, "Set Subtask Estimate") { $0.estimate = minutes.flatMap { $0 > 0 ? $0 : nil } }
     }
 
     public func deleteSubtask(_ taskID: UUID, _ subID: UUID) {

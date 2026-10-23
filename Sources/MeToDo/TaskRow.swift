@@ -38,6 +38,17 @@ struct TaskRow: View {
             }
             if isExpanded {
                 VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 6) {
+                        ChipMenu(icon: "flag", text: task.priority == .none ? "Priority" : task.priority.label,
+                                 tint: task.priority == .none ? .secondary : task.priority.color) {
+                            PriorityMenuItems(selection: task.priority) { store.setPriority(task.id, $0) }
+                        }
+                        .help("Priority")
+                        ChipMenu(icon: "clock", text: task.estimate.map(Queries.durationLabel) ?? "Estimate", tint: .secondary) {
+                            EstimateMenuItems(minutes: task.estimate) { store.setEstimate(task.id, $0) }
+                        }
+                        .help("How long it should take")
+                    }
                     NotesEditor(task: task)
                     SubtaskList(task: task, color: color)
                 }
@@ -89,8 +100,15 @@ struct TaskRow: View {
         let progress = task.subtaskProgress
         let tag = showProjectTag ? project : nil
         let hasNotes = !task.notes.isEmpty && !isExpanded
-        if progress.total > 0 || task.remindAt != nil || task.inToday || tag != nil || hasNotes {
+        let minutes = task.isDone ? nil : Queries.minutesLeft(task)
+        let flagged = task.priority != .none && !task.isDone
+        if progress.total > 0 || task.remindAt != nil || task.inToday || tag != nil || hasNotes || flagged || minutes != nil {
             HStack(spacing: 10) {
+                if flagged {
+                    Image(systemName: "flag.fill")
+                        .foregroundStyle(task.priority.color)
+                        .help("\(task.priority.label) priority")
+                }
                 if progress.total > 0 {
                     Button { ui.toggleExpanded(task.id) } label: {
                         HStack(spacing: 4) {
@@ -106,6 +124,10 @@ struct TaskRow: View {
                 if let remindAt = task.remindAt {
                     Label(Queries.reminderLabel(remindAt, now: ui.now), systemImage: "bell")
                         .foregroundStyle(Queries.isOverdue(task, now: ui.now) ? AnyShapeStyle(.red) : AnyShapeStyle(.secondary))
+                }
+                if let minutes {
+                    Label(Queries.durationLabel(minutes), systemImage: "clock")
+                        .help(task.subtasks.contains { $0.estimate != nil } ? "Estimated time left in open subtasks" : "Estimate")
                 }
                 if hasNotes {
                     Image(systemName: "note.text").help("Has notes")
@@ -150,6 +172,8 @@ struct TaskRow: View {
         Button(task.inToday ? "Remove from Today" : "Add to Today") { store.toggleToday(task.id) }
         Button("Add Subtask") { ui.expanded.insert(task.id) }
         Button("Set Reminder…") { showReminder = true }
+        Menu("Priority") { PriorityMenuItems(selection: task.priority) { store.setPriority(task.id, $0) } }
+        Menu("Estimate") { EstimateMenuItems(minutes: task.estimate) { store.setEstimate(task.id, $0) } }
         Menu("Move to") {
             ForEach(store.data.projects) { p in
                 Button { store.move(task.id, toProject: p.id) } label: { ProjectMenuLabel(project: p) }

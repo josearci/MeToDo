@@ -49,6 +49,26 @@ public enum QuickAdd {
         return rest.split(whereSeparator: \.isWhitespace).allSatisfy { filler.contains($0.lowercased()) } ? date : nil
     }
 
+    /// "90", "90m", "45 min", "2h", "1.5h", "1h30m", "1h 30m", "1:30" → minutes. nil for anything else.
+    public static func minutes(from phrase: String) -> Int? {
+        let text = phrase.trimmingCharacters(in: .whitespaces)
+        let range = NSRange(text.startIndex..., in: text)
+        if let m = clock.firstMatch(in: text, range: range),
+           let h = Int(text[Range(m.range(at: 1), in: text)!]), let min = Int(text[Range(m.range(at: 2), in: text)!]) {
+            return h * 60 + min
+        }
+        guard let m = duration.firstMatch(in: text, range: range) else { return nil }
+        let group = { (i: Int) in Range(m.range(at: i), in: text).map { String(text[$0]) } }
+        let hours = group(1).flatMap(Double.init)
+        let mins = group(2).flatMap(Int.init) ?? group(3).flatMap(Int.init)
+        guard hours != nil || mins != nil else { return nil }
+        return Int(((hours ?? 0) * 60).rounded()) + (mins ?? 0)
+    }
+
+    static let clock = try! NSRegularExpression(pattern: #"^(\d+):([0-5]\d)$"#)
+    static let duration = try! NSRegularExpression(
+        pattern: #"(?i)^(?:(\d+(?:\.\d+)?)\s*h(?:ours?|rs?)?)?\s*(?:(\d+)\s*m(?:in(?:ute)?s?)?)?$|^(\d+)$"#)
+
     /// The first date phrase in `text` and where it is. No time given means 9:00.
     static func findDate(in text: String, calendar: Calendar) -> (Date, Range<String.Index>)? {
         guard let found = detectRelative(in: text, calendar: calendar) ?? detectDate(in: text) else { return nil }

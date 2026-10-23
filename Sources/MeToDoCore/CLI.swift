@@ -35,12 +35,19 @@ public enum CLI {
       show <id>                        One task with its notes and subtasks
       add <title…>                     Add a task (to the Inbox unless --project)
            [--project NAME] [--due WHEN] [--notes TEXT] [--today]
+           [--priority P] [--estimate D]
            [--parse]                   Read #project and a date from the title, like the app's Add field
       complete <id…>                   Mark tasks done
       reopen <id…>                     Untick done tasks, or bring cleared ones back
       edit <id> [--title T] [--notes N] [--due WHEN|none] [--project NAME]
+                [--priority P] [--estimate D|none] [--today]
       delete <id…>                     Delete tasks (⌘Z in the app undoes it)
+      today                            Same as `list today`
+      today add <id…>                  Pull tasks into Today (☀️)
+      today remove <id…>               Take the ☀️ off (tasks due today stay until rescheduled)
       subtask add <task-id> <title…>   Add a subtask
+           [--due WHEN] [--estimate D] A subtask due today brings its task into Today
+      subtask edit <task-id> <n|subtask-id> [--title T] [--due WHEN|none] [--estimate D|none]
       subtask complete <task-id> <n|subtask-id>
       subtask reopen <task-id> <n|subtask-id>
 
@@ -55,6 +62,14 @@ public enum CLI {
     WHEN (--due)
       Anything the Add field understands — "tomorrow 9am", "friday", "next monday 3pm",
       "in 2 hours" — or "2026-10-23", "2026-10-23 14:30", full ISO 8601. A day without a time means 9:00.
+
+    PRIORITY (--priority)
+      none, low, medium, high, urgent (a prefix works: h, med), or P1 (urgent) … P4 (low).
+      Today lists the highest priority first, then by due time, then in your order.
+
+    ESTIMATE (--estimate)
+      90m, 45 min, 2h, 1.5h, 1h30m, 1:30, or plain minutes. Today's header adds them up; when
+      subtasks have estimates they replace the task's own, and only those due by today count.
 
     PROJECTS (--project)
       Name without emoji, case and accents don't matter, a unique prefix works: --project work
@@ -71,6 +86,9 @@ public enum CLI {
       metodo complete 3f2a1b9c
       metodo edit 3f2a --due none --notes "Waiting on Bob"
       metodo subtask add 3f2a "Buy stamps" && metodo subtask complete 3f2a 1
+      metodo edit 3f2a --priority high --estimate 1h30m
+      metodo subtask add 3f2a "Draft outline" --due "today 3pm" --estimate 45m
+      metodo today add 3f2a
 
     """
 
@@ -186,6 +204,7 @@ private struct Runner {
         case "reopen": try reopen(a)
         case "edit": try edit(a)
         case "delete", "rm": try delete(a)
+        case "today": try today(a)
         default: throw CLI.Failure("unknown command '\(command)'. See metodo --help.")
         }
     }
@@ -203,6 +222,8 @@ private struct Runner {
             if let project { tasks = tasks.filter { $0.projectID == project.id } }
             if a.json { return emit(tasks.map(json)) }
             out += tasks.isEmpty ? "No tasks.\n" : tasks.map { line($0) + "\n" }.joined()
+            let planned = Queries.planned(tasks, now: now, calendar: calendar)
+            if view == "today" && planned > 0 { out += "\(Queries.durationLabel(planned)) planned\n" }
         case "completed", "done":
             var done = Queries.completed(data)
             if let project { done = done.filter { $0.projectID == project.id } }
@@ -243,7 +264,7 @@ private struct Runner {
         if !t.subtasks.isEmpty {
             out += "Subtasks:\n"
             for (i, s) in t.subtasks.enumerated() {
-                out += "  \(i + 1). [\(s.isDone ? "x" : " ")] \(s.title)  (\(short(s.id)))\n"
+                out += "  \(i + 1). [\(s.isDone ? "x" : " ")] \(s.title)  (\(subtaskDetails(s)))\n"
             }
         }
     }
@@ -251,18 +272,20 @@ private struct Runner {
     // MARK: Changing
 
     mutating func add(_ a: Args) throws {
-        try a.allow("title", "project", "due", "notes", "today", "parse", "json")
+        try a.allow("title", "project", "due", "notes", "today", "parse", "priority", "estimate", "json")
         var title = a.options["title"] ?? a.positional.joined(separator: " ")
         if a.options["title"] != nil && !a.positional.isEmpty { throw CLI.Failure("give the title once.") }
         var projectID = try a.options["project"].map(findProject)?.id
         var due = try a.options["due"].map(parseDue)
+        let priority = try a.options["priority"].map(parsePriority) ?? .none
+        let estimate = try a.options["estimate"].map(parseEstimate) ?? nil
         if a.flags.contains("parse"), let r = QuickAdd.parse(title, projects: data.projects, calendar: calendar) {
             title = r.title
             projectID = projectID ?? r.projectID
             due = due ?? r.remindAt
         }
         guard let t = store.addTask(title, projectID: projectID, remindAt: due, inToday: a.flags.contains("today"),
-                                    notes: a.options["notes"] ?? "") else {
+                                    notes: a.options["notes"] ?? "", priority: priority, estimate: estimate) else {
             throw CLI.Failure("the task needs a title.")
         }
         report("Added", t, a)
@@ -286,12 +309,15 @@ private struct Runner {
     }
 
     mutating func edit(_ a: Args) throws {
-        try a.allow("id", "title", "notes", "due", "project", "json")
+        try a.allow("id", "title", "notes", "due", "project", "priority", "estimate", "today", "json")
         let t = try findTask(a.one("id", "a task id"))
         let project = try a.options["project"].map(findProject)
-        let due = try a.options["due"].map { ["none", "clear", ""].contains($0.lowercased()) ? Date?.none : try parseDue($0) }
-        guard a.options["title"] != nil || a.options["notes"] != nil || due != nil || project != nil else {
-            throw CLI.Failure("nothing to change; give --title, --notes, --due or --project.")
+        let due = try a.options["due"].map { isNone($0) ? Date?.none : try parseDue($0) }
+        let priority = try a.options["priority"].map(parsePriority)
+        let estimate = try a.options["estimate"].map(parseEstimate)
+        guard a.options["title"] != nil || a.options["notes"] != nil || due != nil || project != nil || priority != nil
+                || estimate != nil || a.flags.contains("today") else {
+            throw CLI.Failure("nothing to change; give --title, --notes, --due, --project, --priority, --estimate or --today.")
         }
         if let title = a.options["title"] {
             guard !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw CLI.Failure("the title can't be empty.") }
@@ -300,6 +326,9 @@ private struct Runner {
         if let notes = a.options["notes"] { store.setNotes(t.id, notes, undoable: true) }
         if let due { store.setReminder(t.id, due) }
         if let project { store.move(t.id, toProject: project.id) }
+        if let priority { store.setPriority(t.id, priority) }
+        if let estimate { store.setEstimate(t.id, estimate) }
+        if a.flags.contains("today") { store.setToday(t.id, true) }
         report("Updated", try findTask(t.id.uuidString), a)
     }
 
@@ -312,44 +341,92 @@ private struct Runner {
         out += lines.map { "Deleted: \($0)\n" }.joined()
     }
 
+    mutating func today(_ a: Args) throws {
+        var a = a
+        guard let action = a.positional.first else {
+            a.positional = ["today"]   // `metodo today` is `metodo list today`
+            return try list(a)
+        }
+        guard ["add", "remove", "rm"].contains(action) else { throw CLI.Failure("today takes add or remove. See metodo --help.") }
+        a.positional.removeFirst()
+        try a.allow("id", "json")
+        let tasks = try a.ids().map(findTask)
+        tasks.forEach { store.setToday($0.id, action == "add") }
+        let updated = tasks.compactMap { store.task($0.id) }
+        if a.json { return emit(updated.map(json)) }
+        for t in updated {
+            if action == "add" {
+                out += t.isDone ? "Already done: \(line(t))\n" : "In Today: \(line(t))\n"
+            } else {
+                let still = Queries.isInToday(t, now: now, calendar: calendar) ? "  (still in Today: it's due today or earlier)" : ""
+                out += "Removed from Today: \(line(t))\(still)\n"
+            }
+        }
+    }
+
     mutating func subtask(_ action: String, _ a: Args) throws {
         switch action {
         case "add":
-            try a.allow("id", "title", "json")
+            try a.allow("id", "title", "due", "estimate", "json")
             var words = a.positional
             guard let taskRef = a.options["id"] ?? (words.isEmpty ? nil : words.removeFirst()) else {
                 throw CLI.Failure("subtask add needs a task id.")
             }
             let title = a.options["title"] ?? words.joined(separator: " ")
             let t = try findTask(taskRef)
-            guard let s = store.addSubtask(t.id, title: title) else { throw CLI.Failure("the subtask needs a title.") }
+            let due = try a.options["due"].map(parseDue)
+            let estimate = try a.options["estimate"].map(parseEstimate) ?? nil
+            guard let s = store.addSubtask(t.id, title: title, dueAt: due, estimate: estimate) else {
+                throw CLI.Failure("the subtask needs a title.")
+            }
             if a.json { return emit(json(try findTask(t.id.uuidString))) }
-            out += "Added subtask \(t.subtasks.count + 1) (\(short(s.id))) to \(short(t.id)) \(t.title): \(s.title)\n"
+            out += "Added subtask \(t.subtasks.count + 1) (\(subtaskDetails(s))) to \(short(t.id)) \(t.title): \(s.title)\n"
+        case "edit":
+            try a.allow("id", "subtask", "title", "due", "estimate", "json")
+            let (t, s) = try findSubtask(a, action)
+            let due = try a.options["due"].map { isNone($0) ? Date?.none : try parseDue($0) }
+            let estimate = try a.options["estimate"].map(parseEstimate)
+            guard a.options["title"] != nil || due != nil || estimate != nil else {
+                throw CLI.Failure("nothing to change; give --title, --due or --estimate.")
+            }
+            if let title = a.options["title"] {
+                guard !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw CLI.Failure("the title can't be empty.") }
+                store.renameSubtask(t.id, s.id, to: title)
+            }
+            if let due { store.setSubtaskDue(t.id, s.id, due) }
+            if let estimate { store.setSubtaskEstimate(t.id, s.id, estimate) }
+            let updated = try findTask(t.id.uuidString)
+            if a.json { return emit(json(updated)) }
+            let edited = updated.subtasks.first { $0.id == s.id } ?? s
+            out += "Updated subtask: \(edited.title)  (\(subtaskDetails(edited)))\n"
         case "complete", "done", "reopen":
             try a.allow("id", "subtask", "json")
-            var words = a.positional
-            guard let taskRef = a.options["id"] ?? (words.isEmpty ? nil : words.removeFirst()),
-                  let subRef = a.options["subtask"] ?? (words.isEmpty ? nil : words.removeFirst()) else {
-                throw CLI.Failure("subtask \(action) needs a task id and a subtask number or id.")
-            }
-            guard words.isEmpty else { throw CLI.Failure("unexpected '\(words.joined(separator: " "))'.") }
-            let t = try findTask(taskRef)
-            let s: Subtask
-            if let n = Int(subRef), (1...t.subtasks.count).contains(n) {
-                s = t.subtasks[n - 1]
-            } else {
-                let refs = t.subtasks.map { Ref(id: $0.id, label: "\(short($0.id)) \($0.title)") }
-                let id = try find(subRef, in: refs, what: "subtask").id
-                s = t.subtasks.first { $0.id == id }!
-            }
+            let (t, s) = try findSubtask(a, action)
             if s.isDone == (action == "reopen") { store.toggleSubtask(t.id, s.id) }
             let updated = try findTask(t.id.uuidString)
             if a.json { return emit(json(updated)) }
             let p = updated.subtaskProgress
             out += "\(action == "reopen" ? "Reopened" : "Completed") subtask: \(s.title)  (\(p.done)/\(p.total) done in \(short(t.id)) \(t.title))\n"
         default:
-            throw CLI.Failure("unknown subtask command '\(action)'; use add, complete or reopen.")
+            throw CLI.Failure("unknown subtask command '\(action)'; use add, edit, complete or reopen.")
         }
+    }
+
+    /// `<task-id> <n|subtask-id>`, positionally or as --id/--subtask.
+    func findSubtask(_ a: Args, _ action: String) throws -> (TaskItem, Subtask) {
+        var words = a.positional
+        guard let taskRef = a.options["id"] ?? (words.isEmpty ? nil : words.removeFirst()),
+              let subRef = a.options["subtask"] ?? (words.isEmpty ? nil : words.removeFirst()) else {
+            throw CLI.Failure("subtask \(action) needs a task id and a subtask number or id.")
+        }
+        guard words.isEmpty else { throw CLI.Failure("unexpected '\(words.joined(separator: " "))'.") }
+        let t = try findTask(taskRef)
+        if let n = Int(subRef), t.subtasks.indices.contains(n - 1) {
+            return (t, t.subtasks[n - 1])
+        }
+        let refs = t.subtasks.map { Ref(id: $0.id, label: "\(short($0.id)) \($0.title)") }
+        let id = try find(subRef, in: refs, what: "subtask").id
+        return (t, t.subtasks.first { $0.id == id }!)
     }
 
     // MARK: Lookups
@@ -382,6 +459,24 @@ private struct Runner {
         throw CLI.Failure("no project matches '\(name)'. Projects: \(data.projects.map(\.name).joined(separator: ", ")).")
     }
 
+    func isNone(_ s: String) -> Bool { ["none", "clear", ""].contains(s.lowercased()) }
+
+    func parsePriority(_ s: String) throws -> Priority {
+        guard let p = Priority(parsing: s) else {
+            throw CLI.Failure("unknown priority '\(s)'; use none, low, medium, high, urgent or P1–P4.")
+        }
+        return p
+    }
+
+    /// Minutes, or nil for "none".
+    func parseEstimate(_ s: String) throws -> Int? {
+        if isNone(s) { return nil }
+        guard let m = QuickAdd.minutes(from: s), m > 0 else {
+            throw CLI.Failure("couldn't read '\(s)' as a duration; try 90m, 2h or 1h30m.")
+        }
+        return m
+    }
+
     func parseDue(_ phrase: String) throws -> Date {
         guard let d = QuickAdd.date(from: phrase, calendar: calendar) else {
             throw CLI.Failure("couldn't read '\(phrase)' as a date; try \"tomorrow 9am\", \"friday\" or \"2026-10-23 14:30\".")
@@ -395,9 +490,11 @@ private struct Runner {
 
     func label(_ date: Date) -> String { Queries.reminderLabel(date, now: now, calendar: calendar) }
 
-    /// `3f2a1b9c  ○ Call Ana  (💼 Work · due Tomorrow 9:00 AM · 1/3 subtasks)`
+    /// `3f2a1b9c  ○ Call Ana  (💼 Work · high · ~1h 30m · due Tomorrow 9:00 AM · 1/3 subtasks)`
     func line(_ t: TaskItem) -> String {
         var parts = [store.project(t.projectID)?.displayName ?? "?"]
+        if t.priority != .none { parts.append(t.priority.rawValue) }
+        if let m = Queries.minutesLeft(t) { parts.append("~" + Queries.durationLabel(m)) }
         if t.isDone {
             parts.append("done" + (t.completedAt.map { " " + label($0) } ?? ""))
         } else if let r = t.remindAt {
@@ -409,11 +506,20 @@ private struct Runner {
         return "\(short(t.id))  \(t.isDone ? "✓" : "○") \(t.title)  (\(parts.joined(separator: " · ")))"
     }
 
+    /// `3f2a1b9c · due Today 3:00 PM · ~45m`
+    func subtaskDetails(_ s: Subtask) -> String {
+        var parts = [short(s.id)]
+        if let d = s.dueAt { parts.append((!s.isDone && d <= now ? "overdue since " : "due ") + label(d)) }
+        if let m = s.estimate { parts.append("~" + Queries.durationLabel(m)) }
+        return parts.joined(separator: " · ")
+    }
+
     func json(_ t: TaskItem) -> TaskJSON {
         TaskJSON(id: t.id, title: t.title, projectID: t.projectID, project: store.project(t.projectID)?.name ?? "",
                  done: t.isDone, completedAt: t.completedAt, due: t.remindAt, overdue: Queries.isOverdue(t, now: now),
                  inToday: t.inToday, today: Queries.isInToday(t, now: now, calendar: calendar), notes: t.notes,
-                 subtasks: t.subtasks.map { SubtaskJSON(id: $0.id, title: $0.title, done: $0.isDone) },
+                 priority: t.priority, estimate: t.estimate, minutesLeft: Queries.minutesLeft(t),
+                 subtasks: t.subtasks.map { SubtaskJSON(id: $0.id, title: $0.title, done: $0.isDone, due: $0.dueAt, estimate: $0.estimate) },
                  createdAt: t.createdAt)
     }
 
@@ -508,6 +614,11 @@ private struct TaskJSON: Encodable {
     /// Shows in the Today view: pulled in, or due today or earlier.
     let today: Bool
     let notes: String
+    let priority: Priority
+    /// Minutes.
+    let estimate: Int?
+    /// Open subtasks' estimates when they have any, else `estimate`.
+    let minutesLeft: Int?
     let subtasks: [SubtaskJSON]
     let createdAt: Date?
 }
@@ -516,6 +627,9 @@ private struct SubtaskJSON: Encodable {
     let id: UUID
     let title: String
     let done: Bool
+    let due: Date?
+    /// Minutes.
+    let estimate: Int?
 }
 
 private struct ProjectJSON: Encodable {

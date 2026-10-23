@@ -29,12 +29,17 @@ public enum Queries {
         return r <= now
     }
 
-    /// Open and either pulled in by hand or with a reminder today or earlier (spec §2).
+    /// Open and either pulled in by hand or due (itself or an open subtask) today or earlier (spec §2).
     public static func isInToday(_ t: TaskItem, now: Date, calendar: Calendar = .current) -> Bool {
         guard !t.isDone else { return false }
         if t.inToday { return true }
-        guard let r = t.remindAt else { return false }
+        guard let r = nextDue(t) else { return false }
         return r < at(hour: 0, daysFromNow: 1, now: now, calendar: calendar)
+    }
+
+    /// The earliest of the task's due time and its open subtasks' due times.
+    public static func nextDue(_ t: TaskItem) -> Date? {
+        ([t.remindAt] + t.subtasks.filter { !$0.isDone }.map(\.dueAt)).compactMap { $0 }.min()
     }
 
     public static func anyOverdue(_ data: AppData, now: Date) -> Bool {
@@ -70,20 +75,48 @@ public enum Queries {
         data.tasks.count(where: { !$0.isDone && $0.projectID == project })
     }
 
-    /// Spec §6: overdue (oldest first), then later today (by time), then the rest in project order.
+    /// Highest priority first; within a priority, spec §6: overdue (oldest first), then later today (by time),
+    /// then the rest in project order. A subtask's due time counts as the task's.
     public static func today(_ data: AppData, now: Date, calendar: Calendar = .current) -> [TaskItem] {
         let endOfToday = at(hour: 0, daysFromNow: 1, now: now, calendar: calendar)
+        func due(_ t: TaskItem) -> Date? { nextDue(t).flatMap { $0 < endOfToday ? $0 : nil } }
         func bucket(_ t: TaskItem) -> Int {
-            guard let r = t.remindAt, r < endOfToday else { return 2 }
+            guard let r = due(t) else { return 2 }
             return r <= now ? 0 : 1
         }
         let todays = ordered(data.tasks.filter { isInToday($0, now: now, calendar: calendar) }, projects: data.projects)
         return todays.enumerated().sorted { a, b in
+            if a.element.priority != b.element.priority { return a.element.priority > b.element.priority }
             let (ba, bb) = (bucket(a.element), bucket(b.element))
             if ba != bb { return ba < bb }
-            if ba < 2, let ra = a.element.remindAt, let rb = b.element.remindAt, ra != rb { return ra < rb }
+            if ba < 2, let ra = due(a.element), let rb = due(b.element), ra != rb { return ra < rb }
             return a.offset < b.offset
         }.map(\.element)
+    }
+
+    // MARK: Estimates
+
+    /// Minutes of work left. When subtasks carry estimates they are the breakdown: the open ones are summed
+    /// (with `until`, only those due before it or undated, so pieces planned for later days don't count).
+    /// Otherwise the task's own estimate. nil when nothing is estimated.
+    public static func minutesLeft(_ t: TaskItem, until: Date? = nil) -> Int? {
+        guard t.subtasks.contains(where: { $0.estimate != nil }) else { return t.estimate }
+        return t.subtasks
+            .filter { s in !s.isDone && until.map { (s.dueAt ?? .distantPast) < $0 } ?? true }
+            .compactMap(\.estimate).reduce(0, +)
+    }
+
+    /// Estimated minutes left today across `tasks` (Today's "5h 30m planned").
+    public static func planned(_ tasks: [TaskItem], now: Date, calendar: Calendar = .current) -> Int {
+        let endOfToday = at(hour: 0, daysFromNow: 1, now: now, calendar: calendar)
+        return tasks.filter { !$0.isDone }.compactMap { minutesLeft($0, until: endOfToday) }.reduce(0, +)
+    }
+
+    /// 45 → "45m", 90 → "1h 30m", 120 → "2h".
+    public static func durationLabel(_ minutes: Int) -> String {
+        let (h, m) = (minutes / 60, minutes % 60)
+        if h == 0 { return "\(m)m" }
+        return m == 0 ? "\(h)h" : "\(h)h \(m)m"
     }
 
     /// Open tasks not in Today, offered when Today is empty.
