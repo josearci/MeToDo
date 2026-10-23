@@ -34,7 +34,7 @@ It downloads the latest release, puts **MeToDo.app** in your Applications folder
 - When Today is empty, you see **Up next**, so there's always something to pick.
 - **Completed** lists everything you've finished, newest first, including tasks you've cleared.
 
-**Notes and subtasks.** Click a task to expand it. You'll see its notes and its subtasks, with a progress ring such as ◔ 1/3.
+**Notes and subtasks.** Click a task to expand it. You'll see its notes and its subtasks, with a progress ring such as ◔ 1/3. Web links in notes (https://…, www.…) are clickable and open in your browser; click anywhere else in the notes to edit them.
 
 <p align="center">
   <img src="docs/images/today-expanded.png" width="820" alt="Today view with a task expanded to show notes and subtasks">

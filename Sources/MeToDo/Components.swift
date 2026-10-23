@@ -188,6 +188,7 @@ struct WindowReader: NSViewRepresentable {
 }
 
 /// Notes shown when a task is expanded. Saved as you type; ⌘Z undoes typing.
+/// Web links in the text are clickable (open in the browser); click anywhere else to edit.
 struct NotesEditor: View {
     @Environment(Store.self) private var store
     let task: TaskItem
@@ -199,11 +200,7 @@ struct NotesEditor: View {
     }
 
     var body: some View {
-        TextEditor(text: $text)
-            .font(.system(size: 12.5))
-            .scrollContentBackground(.hidden)
-            .frame(minHeight: 44, maxHeight: 160)
-            .fixedSize(horizontal: false, vertical: true)
+        NotesTextView(text: $text)
             .padding(.horizontal, 4).padding(.vertical, 4)
             .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
             .overlay(alignment: .topLeading) {
@@ -217,6 +214,86 @@ struct NotesEditor: View {
             }
             .onChange(of: text) { _, new in store.setNotes(task.id, new) }
             .onChange(of: task.notes) { _, new in if new != text { text = new } }
+    }
+}
+
+/// A plain-text NSTextView (TextEditor can't show links) that marks web links as you type. The links are
+/// display-only attributes; the notes stay plain text. NSTextView itself opens a clicked link in the default
+/// browser and shows the pointing hand over it.
+private struct NotesTextView: NSViewRepresentable {
+    @Binding var text: String
+
+    func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
+
+    func makeNSView(context: Context) -> NSScrollView {
+        // TextKit 1, so sizeThatFits can measure with the layout manager.
+        let textView = NSTextView(usingTextLayoutManager: false)
+        textView.autoresizingMask = [.width]
+        textView.isVerticallyResizable = true
+        textView.textContainer?.widthTracksTextView = true
+        textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: .greatestFiniteMagnitude)
+        textView.isRichText = false
+        textView.allowsUndo = true
+        textView.drawsBackground = false
+        textView.textContainerInset = .zero
+        textView.font = .systemFont(ofSize: 12.5)
+        textView.textColor = .labelColor
+        textView.string = text
+        textView.delegate = context.coordinator
+        Self.markLinks(textView)
+        let scroll = NotesScrollView()
+        scroll.documentView = textView
+        scroll.drawsBackground = false
+        scroll.hasVerticalScroller = true
+        scroll.autohidesScrollers = true
+        return scroll
+    }
+
+    func updateNSView(_ scroll: NSScrollView, context: Context) {
+        context.coordinator.text = $text
+        guard let textView = scroll.documentView as? NSTextView, textView.string != text else { return }
+        textView.string = text
+        Self.markLinks(textView)
+    }
+
+    /// As tall as the text at the offered width, kept within 44–160pt (longer notes scroll). Clamped here, not
+    /// with .frame(minHeight:maxHeight:), which lets a representable spill out of the box.
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: NSScrollView, context: Context) -> CGSize? {
+        guard let width = proposal.width, let textView = nsView.documentView as? NSTextView,
+              let layout = textView.layoutManager, let container = textView.textContainer else { return nil }
+        container.size.width = width
+        layout.ensureLayout(for: container)
+        return CGSize(width: width, height: min(max(ceil(layout.usedRect(for: container).height), 44), 160))
+    }
+
+    static func markLinks(_ textView: NSTextView) {
+        guard let storage = textView.textStorage, !textView.hasMarkedText() else { return }   // not mid-IME input
+        storage.beginEditing()
+        storage.removeAttribute(.link, range: NSRange(location: 0, length: storage.length))
+        for link in Links.find(in: storage.string) { storage.addAttribute(.link, value: link.url, range: link.range) }
+        storage.endEditing()
+    }
+
+    /// Keeps the text view at least as tall as the box, so clicking below short notes still edits them.
+    final class NotesScrollView: NSScrollView {
+        override func tile() {
+            super.tile()
+            guard let textView = documentView as? NSTextView, textView.minSize.height != contentSize.height else { return }
+            textView.minSize.height = contentSize.height
+            textView.sizeToFit()
+        }
+    }
+
+    final class Coordinator: NSObject, NSTextViewDelegate {
+        var text: Binding<String>
+        init(text: Binding<String>) { self.text = text }
+
+        func textDidChange(_ notification: Notification) {
+            guard let textView = notification.object as? NSTextView else { return }
+            text.wrappedValue = textView.string
+            NotesTextView.markLinks(textView)
+            textView.enclosingScrollView?.invalidateIntrinsicContentSize()   // re-measure as lines are added
+        }
     }
 }
 
