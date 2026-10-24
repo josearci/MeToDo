@@ -62,7 +62,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let status = StatusItemController(store: store, ui: ui, reminders: reminders, updater: updater)
         statusItem = status
         ui.openMainWindow = { [weak self] in self?.openMainWindow() }
-        if !UserDefaults.standard.bool(forKey: "didFirstLaunch") {
+        if !UserDefaults.standard.bool(forKey: "didFirstLaunch") && LoginItem.isInstalled {
             UserDefaults.standard.set(true, forKey: "didFirstLaunch")
             LoginItem.set(true)
         }
